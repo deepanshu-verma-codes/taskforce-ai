@@ -1,6 +1,18 @@
-import React, { useState } from 'react';
-import { UserPlus, User as UserIcon, Lock, AlertCircle, Loader2, ShieldCheck, LogIn, Sun, Moon } from 'lucide-react';
-import { registerUser } from '../api';
+import React, { useState, useEffect } from 'react';
+import {
+  UserPlus,
+  User as UserIcon,
+  Lock,
+  AlertCircle,
+  CheckCircle2,
+  Sparkles,
+  Loader2,
+  ShieldCheck,
+  LogIn,
+  Sun,
+  Moon,
+} from 'lucide-react';
+import { registerUser, checkUsernameAvailability, AuthError } from '../api';
 import { User } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
@@ -9,13 +21,71 @@ interface SignUpPageProps {
   onSuccess: (user: User) => void;
 }
 
+type UsernameStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid';
+
 export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess }) => {
   const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
+  const [usernameFeedback, setUsernameFeedback] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Debounced real-time username availability check & Gmail-style suggestions
+  useEffect(() => {
+    const clean = username.trim().toLowerCase();
+    if (!clean) {
+      setUsernameStatus('idle');
+      setUsernameFeedback(null);
+      setSuggestions([]);
+      return;
+    }
+
+    if (clean.length < 3) {
+      setUsernameStatus('invalid');
+      setUsernameFeedback('Username must be at least 3 characters.');
+      setSuggestions([]);
+      return;
+    }
+
+    const validPattern = /^[a-zA-Z0-9_-]+$/;
+    if (!validPattern.test(clean)) {
+      setUsernameStatus('invalid');
+      setUsernameFeedback('Letters, numbers, underscores, and hyphens only.');
+      setSuggestions([]);
+      return;
+    }
+
+    setUsernameStatus('checking');
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkUsernameAvailability(clean, name.trim());
+        if (result.available) {
+          setUsernameStatus('available');
+          setUsernameFeedback('Username is available');
+          setSuggestions([]);
+        } else {
+          setUsernameStatus('taken');
+          setUsernameFeedback(result.message || 'That username is taken. Try another.');
+          setSuggestions(result.suggestions || []);
+        }
+      } catch {
+        setUsernameStatus('idle');
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [username, name]);
+
+  const handleSelectSuggestion = (suggested: string) => {
+    setUsername(suggested);
+    setUsernameStatus('available');
+    setUsernameFeedback('Username is available');
+    setError(null);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -23,6 +93,14 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
 
     if (!name.trim()) {
       setError('Please provide your full name or display name.');
+      return;
+    }
+    if (usernameStatus === 'taken') {
+      setError('That username is taken. Please choose another username or pick from the available suggestions.');
+      return;
+    }
+    if (usernameStatus === 'invalid') {
+      setError(usernameFeedback || 'Please enter a valid username.');
       return;
     }
     if (password.length < 6) {
@@ -39,10 +117,13 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
       });
       onSuccess(user);
     } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to create account. Username might already be taken.');
+      const authErr = err as AuthError;
+      const message = authErr.message || 'Failed to create account.';
+      setError(message);
+      if (authErr.suggestions && authErr.suggestions.length > 0) {
+        setUsernameStatus('taken');
+        setUsernameFeedback(message);
+        setSuggestions(authErr.suggestions);
       }
     } finally {
       setIsLoading(false);
@@ -142,10 +223,74 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
                     placeholder="e.g. alice_dev"
                     pattern="^[a-zA-Z0-9_-]+$"
                     title="Letters, numbers, underscores, and hyphens only"
-                    className="w-full px-3.5 py-2.5 pl-9 rounded-lg border border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden focus:border-[#FCD535] transition-colors"
+                    className={`w-full px-3.5 py-2.5 pl-9 pr-9 rounded-lg border bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden transition-colors ${
+                      usernameStatus === 'taken' || usernameStatus === 'invalid'
+                        ? 'border-[#f6465d] focus:border-[#f6465d]'
+                        : usernameStatus === 'available'
+                        ? 'border-[#0ecb81] focus:border-[#0ecb81]'
+                        : 'border-[#eaecef] dark:border-[#2b3139] focus:border-[#FCD535]'
+                    }`}
                   />
                   <span className="text-xs font-mono text-[#707a8a] absolute left-3.5 top-2.5">@</span>
+                  <div className="absolute right-3 top-2.5">
+                    {usernameStatus === 'checking' && (
+                      <Loader2 className="h-4 w-4 animate-spin text-[#FCD535]" />
+                    )}
+                    {usernameStatus === 'available' && (
+                      <CheckCircle2 className="h-4 w-4 text-[#0ecb81]" />
+                    )}
+                    {(usernameStatus === 'taken' || usernameStatus === 'invalid') && (
+                      <AlertCircle className="h-4 w-4 text-[#f6465d]" />
+                    )}
+                  </div>
                 </div>
+
+                {/* Real-Time Feedback */}
+                {usernameFeedback && (
+                  <div
+                    className={`mt-1.5 flex items-center gap-1.5 text-[11px] ${
+                      usernameStatus === 'available'
+                        ? 'text-[#0ecb81]'
+                        : usernameStatus === 'taken' || usernameStatus === 'invalid'
+                        ? 'text-[#f6465d]'
+                        : 'text-[#707a8a]'
+                    }`}
+                  >
+                    <span>{usernameFeedback}</span>
+                  </div>
+                )}
+
+                {/* Gmail-Style Available Suggestions Box */}
+                {suggestions.length > 0 && (
+                  <div className="mt-2.5 p-3 rounded-lg bg-[#f8f9fa] dark:bg-[#12161c] border border-[#eaecef] dark:border-[#2b3139] space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs text-[#707a8a] font-medium">
+                        <Sparkles className="h-3.5 w-3.5 text-[#b8860b] dark:text-[#FCD535]" />
+                        <span>Available:</span>
+                      </div>
+                      <span className="text-[10px] text-[#707a8a]">Click to choose</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestions.map(sug => {
+                        const isSelected = username.trim().toLowerCase() === sug.toLowerCase();
+                        return (
+                          <button
+                            key={sug}
+                            type="button"
+                            onClick={() => handleSelectSuggestion(sug)}
+                            className={`px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all cursor-pointer border ${
+                              isSelected
+                                ? 'bg-[#FCD535] text-[#181a20] border-[#f0b90b] font-bold shadow-xs'
+                                : 'bg-white dark:bg-[#1e2329] border-[#eaecef] dark:border-[#2b3139] text-[#181a20] dark:text-[#eaecef] hover:border-[#FCD535] hover:text-[#b8860b] dark:hover:text-[#FCD535]'
+                            }`}
+                          >
+                            {sug}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -174,7 +319,7 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || usernameStatus === 'checking'}
                 className="w-full py-2.5 rounded-lg bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] font-bold text-xs tracking-tight transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
               >
                 {isLoading ? (

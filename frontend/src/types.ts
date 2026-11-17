@@ -38,6 +38,13 @@ export interface User {
   created_at: string;
 }
 
+export interface UsernameCheckResult {
+  available: boolean;
+  username: string;
+  message: string;
+  suggestions: string[];
+}
+
 export interface Problem {
   id: string;
   user_id?: string;

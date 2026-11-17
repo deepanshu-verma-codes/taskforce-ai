@@ -1,4 +1,4 @@
-import { Problem, DashboardStats, AgentLog, DocumentUploadResponse, User } from './types';
+import { Problem, DashboardStats, AgentLog, DocumentUploadResponse, User, UsernameCheckResult } from './types';
 
 const DIRECT_API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -67,6 +67,29 @@ export async function fetchCurrentUser(): Promise<User | null> {
   }
 }
 
+export interface AuthError extends Error {
+  suggestions?: string[];
+  code?: string;
+}
+
+export async function checkUsernameAvailability(
+  username: string,
+  name?: string
+): Promise<UsernameCheckResult> {
+  const query = new URLSearchParams({ username });
+  if (name) query.append('name', name);
+  const res = await smartFetch(`/auth/check-username?${query.toString()}`);
+  if (!res.ok) {
+    return {
+      available: false,
+      username,
+      message: 'Failed to verify username availability',
+      suggestions: [],
+    };
+  }
+  return res.json();
+}
+
 export async function registerUser(data: {
   username: string;
   name: string;
@@ -80,7 +103,20 @@ export async function registerUser(data: {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Registration failed' }));
-    throw new Error(err.detail || 'Registration failed');
+    const message =
+      typeof err.detail === 'string'
+        ? err.detail
+        : (err.message || err.detail?.message || 'Registration failed');
+    const error = new Error(message) as AuthError;
+    if (Array.isArray(err.suggestions)) {
+      error.suggestions = err.suggestions;
+    } else if (Array.isArray(err.detail?.suggestions)) {
+      error.suggestions = err.detail.suggestions;
+    }
+    if (err.code || err.detail?.code) {
+      error.code = err.code || err.detail?.code;
+    }
+    throw error;
   }
   return res.json();
 }

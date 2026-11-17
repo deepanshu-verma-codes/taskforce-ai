@@ -153,6 +153,15 @@ class UserLoginRequest(BaseModel):
     password: str = Field(..., description="Password")
 
 
+class UsernameCheckResponse(BaseModel):
+    available: bool = Field(..., description="True if the username is free to register")
+    username: str = Field(..., description="Normalized username checked")
+    message: str = Field(..., description="Status explanation or validation feedback")
+    suggestions: list[str] = Field(
+        default_factory=list, description="Available alternative suggestions if taken"
+    )
+
+
 class UserResponse(BaseModel):
     id: str
     username: str

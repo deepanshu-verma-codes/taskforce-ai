@@ -1,13 +1,24 @@
 import asyncio
 import json
 import os
+import re
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Request, Response, UploadFile, status
+from fastapi import (
+    Depends,
+    FastAPI,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -23,6 +34,7 @@ from app.schemas import (
     ProblemResponse,
     RagChunkItem,
     UserLoginRequest,
+    UsernameCheckResponse,
     UserRegisterRequest,
     UserResponse,
     sanitize_filename,
@@ -102,6 +114,23 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    """Formats HTTPException into consistent JSON, preserving structured fields like suggestions."""
+    if isinstance(exc.detail, dict):
+        message = exc.detail.get("message") or exc.detail.get("detail") or "Request failed"
+        content = {
+            "detail": message,
+            **exc.detail,
+        }
+        return JSONResponse(status_code=exc.status_code, content=content, headers=exc.headers)
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": str(exc.detail)},
+        headers=exc.headers,
+    )
+
+
 @app.get("/api/health")
 async def health_check():
     return {
@@ -119,6 +148,51 @@ async def health_check():
 # ============================================================================
 # Authentication & Multi-Tenant User Management
 # ============================================================================
+
+
+@app.get("/api/auth/check-username", response_model=UsernameCheckResponse)
+async def check_username(
+    db: DbSession,
+    username: str = Query(..., min_length=1, max_length=50),
+    name: str | None = Query(None, max_length=100),
+):
+    """Checks real-time availability of a username. If taken, returns intelligent
+
+    Gmail-style alternative suggestions based on user input.
+    """
+    clean_username = username.strip().lower()
+    if len(clean_username) < 3:
+        return UsernameCheckResponse(
+            available=False,
+            username=clean_username,
+            message="Username must be at least 3 characters.",
+            suggestions=[],
+        )
+
+    if not re.match(r"^[a-zA-Z0-9_-]+$", clean_username):
+        return UsernameCheckResponse(
+            available=False,
+            username=clean_username,
+            message="Letters, numbers, underscores, and hyphens only.",
+            suggestions=[],
+        )
+
+    existing = await auth_service.get_user_by_username(db, clean_username)
+    if existing:
+        suggestions = await auth_service.generate_username_suggestions(db, clean_username, name)
+        return UsernameCheckResponse(
+            available=False,
+            username=clean_username,
+            message="That username is taken. Try another.",
+            suggestions=suggestions,
+        )
+
+    return UsernameCheckResponse(
+        available=True,
+        username=clean_username,
+        message="Username is available!",
+        suggestions=[],
+    )
 
 
 @app.post("/api/auth/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

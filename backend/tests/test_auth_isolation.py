@@ -167,3 +167,60 @@ def test_reset_all_problems_to_pending():
     for p in problems_res.json():
         assert p["status"] == "PENDING"
         assert p["solution_patch"] is None
+
+
+def test_check_username_availability_and_suggestions():
+    """Verify real-time username availability checking and Gmail-style suggestions."""
+    client = TestClient(app)
+    taken_username = f"taken_{uuid.uuid4().hex[:6]}"
+
+    # Initially available
+    res_avail = client.get(f"/api/auth/check-username?username={taken_username}")
+    assert res_avail.status_code == 200
+    data_avail = res_avail.json()
+    assert data_avail["available"] is True
+    assert data_avail["suggestions"] == []
+
+    # Register user to make it taken
+    reg_res = client.post(
+        "/api/auth/register",
+        json={"username": taken_username, "name": "Elena Rostova", "password": "Password123!"},
+    )
+    assert reg_res.status_code == 201
+
+    # Now check again -> should be taken with Gmail-style suggestions
+    res_taken = client.get(
+        f"/api/auth/check-username?username={taken_username}&name=Elena%20Rostova"
+    )
+    assert res_taken.status_code == 200
+    data_taken = res_taken.json()
+    assert data_taken["available"] is False
+    assert "taken" in data_taken["message"].lower()
+    assert len(data_taken["suggestions"]) >= 3
+    for sug in data_taken["suggestions"]:
+        assert sug != taken_username
+        assert len(sug) >= 3
+
+
+def test_duplicate_registration_returns_suggestions():
+    """Verify that submitting a taken username returns 400 with alternative suggestions."""
+    client = TestClient(app)
+    existing_user = f"clash_{uuid.uuid4().hex[:6]}"
+
+    # First registration succeeds
+    reg1 = client.post(
+        "/api/auth/register",
+        json={"username": existing_user, "name": "David Park", "password": "Password123!"},
+    )
+    assert reg1.status_code == 201
+
+    # Second registration with identical username fails with 400 and suggestions
+    reg2 = client.post(
+        "/api/auth/register",
+        json={"username": existing_user, "name": "David Park", "password": "Password123!"},
+    )
+    assert reg2.status_code == 400
+    err_data = reg2.json()
+    assert "taken" in err_data["detail"].lower()
+    assert "suggestions" in err_data
+    assert len(err_data["suggestions"]) >= 3

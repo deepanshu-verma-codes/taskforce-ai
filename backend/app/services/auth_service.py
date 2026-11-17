@@ -2,9 +2,11 @@ import base64
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import time
 import uuid
+from datetime import datetime
 from typing import Any
 
 from fastapi import HTTPException, Response, status
@@ -166,13 +168,113 @@ async def get_user_by_username(db: AsyncSession, username: str) -> User | None:
     return result.scalar_one_or_none()
 
 
+async def generate_username_suggestions(
+    db: AsyncSession,
+    base_username: str,
+    name: str | None = None,
+    limit: int = 4,
+) -> list[str]:
+    """Generates intelligent, Gmail-style alternative username suggestions based on
+
+    the taken username and user's display name, guaranteeing that every returned
+    suggestion is available in the database.
+    """
+    clean_base = re.sub(r"[^a-zA-Z0-9_-]", "", base_username.lower()).strip("_-")
+    if not clean_base or len(clean_base) < 2:
+        clean_base = "user"
+
+    candidates: list[str] = []
+
+    # 1. Name-based variations (if name provided)
+    if name:
+        parts = [re.sub(r"[^a-zA-Z0-9]", "", p.lower()) for p in name.split()]
+        parts = [p for p in parts if p]
+        if len(parts) >= 2:
+            first, last = parts[0], parts[-1]
+            candidates.append(f"{first}{last}")
+            candidates.append(f"{first}_{last}")
+            candidates.append(f"{first[0]}{last}")
+            candidates.append(f"{first}{last[0]}")
+            candidates.append(f"{last}_{first}")
+        elif len(parts) == 1 and parts[0] != clean_base:
+            candidates.append(parts[0])
+
+    # 2. Year & number variations
+    now_year = datetime.now().year
+    year_short = str(now_year)[-2:]
+    candidates.append(f"{clean_base}{year_short}")
+    candidates.append(f"{clean_base}{now_year}")
+
+    for _ in range(4):
+        num = secrets.randbelow(90) + 10
+        candidates.append(f"{clean_base}{num}")
+        candidates.append(f"{clean_base}_{num}")
+
+    # 3. Delimiter alternations
+    if "_" in clean_base:
+        candidates.append(clean_base.replace("_", ""))
+        candidates.append(clean_base.replace("_", "-"))
+    if "-" in clean_base:
+        candidates.append(clean_base.replace("-", ""))
+        candidates.append(clean_base.replace("-", "_"))
+
+    # 4. Tech / role / platform suffixes & prefixes
+    suffixes = ["dev", "ai", "hub", "pro", "lab", "hq"]
+    for s in suffixes:
+        candidates.append(f"{clean_base}_{s}")
+        candidates.append(f"{clean_base}{s}")
+
+    prefixes = ["the_", "iam_"]
+    for p in prefixes:
+        candidates.append(f"{p}{clean_base}")
+
+    # 5. Sanitize, validate length, and deduplicate candidates preserving order
+    valid_candidates: list[str] = []
+    seen = {clean_base, base_username.lower().strip()}
+    for c in candidates:
+        c_clean = c.lower().strip("_-")
+        if (
+            len(c_clean) >= 3
+            and len(c_clean) <= 30
+            and re.match(r"^[a-zA-Z0-9_-]+$", c_clean)
+            and c_clean not in seen
+        ):
+            seen.add(c_clean)
+            valid_candidates.append(c_clean)
+
+    if not valid_candidates:
+        valid_candidates = [f"{clean_base}{secrets.randbelow(900) + 100}" for _ in range(6)]
+
+    # 6. Check candidates against the database in a single query
+    stmt = select(User.username).where(User.username.in_(valid_candidates))
+    result = await db.execute(stmt)
+    taken = set(result.scalars().all())
+
+    available = [c for c in valid_candidates if c not in taken]
+
+    # Ensure at least `limit` suggestions are provided
+    while len(available) < limit:
+        extra_cand = f"{clean_base}{secrets.randbelow(9000) + 1000}"
+        if extra_cand not in taken and extra_cand not in available:
+            chk = await get_user_by_username(db, extra_cand)
+            if not chk:
+                available.append(extra_cand)
+
+    return available[:limit]
+
+
 async def register_user(db: AsyncSession, req: UserRegisterRequest) -> User:
     clean_username = req.username.lower().strip()
     existing = await get_user_by_username(db, clean_username)
     if existing:
+        suggestions = await generate_username_suggestions(db, clean_username, req.name)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user with this username already exists. Please choose a different username.",
+            detail={
+                "message": "That username is taken. Try another.",
+                "code": "USERNAME_TAKEN",
+                "suggestions": suggestions,
+            },
         )
 
     user = User(
