@@ -18,6 +18,12 @@ class Settings(BaseSettings):
         "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000"
     )
 
+    # Authentication & Session Security (HttpOnly Cookies & JWT)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Short-lived access token (15 mins)
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7  # Long-lived refresh token (7 days)
+    COOKIE_SECURE: bool = False  # False for local HTTP development, True for production HTTPS
+    RATE_LIMIT_AUTH: int = 20
+
     # Free & Commercial LLM Provider Keys
     # 1. Google Gemini (Free tier available on Google AI Studio)
     GEMINI_API_KEY: str | None = None
@@ -38,19 +44,20 @@ class Settings(BaseSettings):
 
     # LangSmith Observability, Tracing & Agent Identity
     LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
-    LANGSMITH_AGENT_ID: str = "reco-agent"
+    LANGSMITH_AGENT_ID: str = "taskforce-ai-agent"
     LANGSMITH_AGENT_ENVIRONMENT: str = "local"
     LANGSMITH_TRACING: str = "true"
     LANGCHAIN_TRACING_V2: str = "true"
     LANGCHAIN_API_KEY: str | None = None
     LANGSMITH_API_KEY: str | None = None
-    LANGCHAIN_PROJECT: str = "fde-swarm-reco"
-    LANGSMITH_PROJECT: str = "fde-swarm-reco"
+    LANGCHAIN_PROJECT: str = "fde-swarm-taskforce-ai"
+    LANGSMITH_PROJECT: str = "fde-swarm-taskforce-ai"
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
 
     # Rate Limiting & Defense
     RATE_LIMIT_DEFAULT: int = 120
     RATE_LIMIT_SOLVE: int = 10
+    RATE_LIMIT_DELETE: int = 15
 
     # Qdrant Vector Database & RAG Configuration
     QDRANT_PATH: str = "./qdrant_storage"

@@ -71,6 +71,10 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if m == "POST" and "/solve" in path:
             return (settings.RATE_LIMIT_SOLVE, 60, "solve")
 
+        # 2. Authentication: POST /api/auth/...
+        if m == "POST" and path.startswith("/api/auth"):
+            return (settings.RATE_LIMIT_AUTH, 60, "auth")
+
         # 2. Document & PDF Ingestion: POST /api/upload-document
         if m == "POST" and "/api/upload-document" in path:
             return (10, 60, "upload_doc")
@@ -79,11 +83,15 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if m == "POST" and path == "/api/problems":
             return (15, 60, "create_problem")
 
-        # 4. Standard Reads: GET /api/problems...
+        # 4. Problem Deletion: DELETE /api/problems/{id}
+        if m == "DELETE" and path.startswith("/api/problems"):
+            return (settings.RATE_LIMIT_DELETE, 60, "delete_problem")
+
+        # 5. Standard Reads: GET /api/problems...
         if m == "GET" and path.startswith("/api/problems"):
             return (60, 60, "read_problems")
 
-        # 5. Global Default Tier
+        # 6. Global Default Tier
         return (settings.RATE_LIMIT_DEFAULT, 60, "default")
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
