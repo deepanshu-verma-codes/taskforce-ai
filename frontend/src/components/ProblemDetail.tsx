@@ -371,7 +371,7 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
 
                         <div className="flex items-center gap-3">
                           <span className="text-[10px] font-mono text-[#707a8a]">
-                            {run.tokens_used.toLocaleString()} tokens • ${(run.latency_ms / 1000).toFixed(1)}s
+                            {run.tokens_used.toLocaleString()} tokens • {(run.latency_ms / 1000).toFixed(1)}s
                           </span>
                           {isExpanded ? <ChevronUp className="h-4 w-4 text-[#707a8a]" /> : <ChevronDown className="h-4 w-4 text-[#707a8a]" />}
                         </div>
