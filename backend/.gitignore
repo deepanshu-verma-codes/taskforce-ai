@@ -1,0 +1,38 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# SQLite databases & lock files
+*.db
+*.sqlite
+*.sqlite3
+*-journal
+*-wal
+*-shm
+fde_swarm.db
+
+# Vector Database Storage
+qdrant_storage/
+**/qdrant_storage/**
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+.DS_Store
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
