@@ -31,8 +31,16 @@ export interface EvaluationMetric {
   timestamp: string;
 }
 
+export interface User {
+  id: string;
+  username: string;
+  name: string;
+  created_at: string;
+}
+
 export interface Problem {
   id: string;
+  user_id?: string;
   title: string;
   description: string;
   code_snippet?: string;

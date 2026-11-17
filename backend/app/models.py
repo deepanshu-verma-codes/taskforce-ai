@@ -7,10 +7,26 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    username = Column(String(50), unique=True, nullable=False, index=True)
+    name = Column(String(100), nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Multi-tenant isolation: a user owns their problems
+    problems = relationship(
+        "Problem", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+
 class Problem(Base):
     __tablename__ = "problems"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String(36), ForeignKey("users.id"), nullable=True, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
     code_snippet = Column(Text, nullable=True)
@@ -54,6 +70,7 @@ class Problem(Base):
     evaluations = relationship(
         "EvaluationMetric", back_populates="problem", cascade="all, delete-orphan", lazy="selectin"
     )
+    user = relationship("User", back_populates="problems", lazy="selectin")
 
 
 class AgentRun(Base):

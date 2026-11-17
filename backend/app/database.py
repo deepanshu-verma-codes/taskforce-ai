@@ -27,13 +27,23 @@ async def get_db():
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Idempotent column migrations for Qdrant RAG
+        # Idempotent column migrations for Qdrant RAG and Auth
         for migration in [
             "ALTER TABLE problems ADD COLUMN document_name VARCHAR(255)",
             "ALTER TABLE problems ADD COLUMN has_rag INTEGER DEFAULT 0",
             "ALTER TABLE problems ADD COLUMN rag_chunks_count INTEGER DEFAULT 0",
+            "ALTER TABLE problems ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)",
         ]:
             try:
                 await conn.exec_driver_sql(migration)
             except Exception:
                 pass
+
+    # Ensure demo user exists and legacy problems are claimed
+    async with AsyncSessionLocal() as session:
+        try:
+            from app.services.auth_service import ensure_demo_user
+
+            await ensure_demo_user(session)
+        except Exception:
+            pass

@@ -128,8 +128,43 @@ class EvaluationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserRegisterRequest(BaseModel):
+    username: str = Field(
+        ...,
+        min_length=3,
+        max_length=50,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+        description="Unique username containing letters, numbers, underscores, and hyphens",
+    )
+    name: str = Field(..., min_length=1, max_length=100, description="Display name of user")
+    password: str = Field(..., min_length=6, max_length=128, description="User password")
+
+    @field_validator("name", mode="after")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        clean = sanitize_text_input(v)
+        if not clean:
+            raise ValueError("Name cannot be empty")
+        return clean
+
+
+class UserLoginRequest(BaseModel):
+    username: str = Field(..., description="Username")
+    password: str = Field(..., description="Password")
+
+
+class UserResponse(BaseModel):
+    id: str
+    username: str
+    name: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProblemResponse(BaseModel):
     id: str
+    user_id: str | None = None
     title: str
     description: str
     code_snippet: str | None = None
