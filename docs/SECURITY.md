@@ -36,7 +36,7 @@ Layer 7: Swarm Agent Defense --> Delimited Prompt Sandboxing & Sensitive Credent
 
 ## 3. Rate Limiting & Denial-of-Service (DoS) Defense
 
-To protect costly LLM swarm inference pipelines, prevent CPU/memory exhaustion, and stop automated abuse, the backend implements a **sliding-window rate limiter** in [middleware.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/middleware.py).
+To protect costly LLM swarm inference pipelines, prevent CPU/memory exhaustion, and stop automated abuse, the backend implements a **sliding-window rate limiter** in [middleware.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/middleware.py).
 
 ### 3.1 Rate Limiting Policy Tiers:
 
@@ -109,8 +109,8 @@ To protect commercial LLM provider credentials (`GROQ_API_KEY`, `GEMINI_API_KEY`
    - `VITE_BACKEND_URL=http://127.0.0.1:8000`
    - `VITE_API_URL=http://127.0.0.1:8000/api`
    - `VITE_APP_TITLE="Taskforce | Autonomous Multi-Agent Floor"`
-3. **Server-Side Only Secrets:** All LLM provider keys and signing secrets reside solely in the backend runtime process via `pydantic-settings` ([config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/config.py)). No backend endpoint echoes configuration values or secrets.
-4. **Vite Build-Time Secret Scanner:** The frontend build toolchain includes an automated audit step in [vite.config.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/vite.config.ts) that inspects generated JavaScript and CSS chunks for credential patterns (e.g., `AIza...`, `gsk_...`, `sk-...`, `lsv2_...`). If any secret token is discovered, the build halts with a fatal security error.
+3. **Server-Side Only Secrets:** All LLM provider keys and signing secrets reside solely in the backend runtime process via `pydantic-settings` ([config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py)). No backend endpoint echoes configuration values or secrets.
+4. **Vite Build-Time Secret Scanner:** The frontend build toolchain includes an automated audit step in [vite.config.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/vite.config.ts) that inspects generated JavaScript and CSS chunks for credential patterns (e.g., `AIza...`, `gsk_...`, `sk-...`, `lsv2_...`). If any secret token is discovered, the build halts with a fatal security error.
 
 ---
 

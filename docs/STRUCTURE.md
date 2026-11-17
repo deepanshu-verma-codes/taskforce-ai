@@ -10,7 +10,7 @@
 ## 1. High-Level Project Anatomy
 
 ```
-reco/
+taskforce-ai/
 ├── AGENTS.md                 # Master Agent Operating Charter
 ├── README.md                 # Project Overview & Setup Instructions
 ├── .gitignore                # Universal Git Ignore Rules

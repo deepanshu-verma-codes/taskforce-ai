@@ -1,6 +1,6 @@
 # Taskforce | Autonomous Multi-Agent Swarm Platform
 
-> **Live Handover & Status Dossier:** See [STATUS.md](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/STATUS.md) for the complete engineering handover, current runtime state, and architecture guide.
+> **Live Handover & Status Dossier:** See [STATUS.md](taskforce-ai/docs/STATUS.md) for the complete engineering handover, current runtime state, and architecture guide.
 
 An enterprise-grade **Autonomous Multi-Agent Problem Resolution Floor** built with **FastAPI**, **SQLite**, **LangChain**, **LangGraph**, **LangSmith**, and **React 19 + TypeScript + Vite + Tailwind CSS**.
 
@@ -38,7 +38,7 @@ Users can dial the number of agents working on their issue:
 ## 📂 Project Structure
 
 ```
-reco/
+taskforce-ai/
 ├── backend/                  # Managed with uv (pyproject.toml, uv.lock)
 │   ├── app/
 │   │   ├── config.py         # Settings, env vars, LangSmith & LLM configs

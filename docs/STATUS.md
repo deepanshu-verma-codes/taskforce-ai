@@ -2,7 +2,7 @@
 
 > **Canonical Handover Document**  
 > **Project Name:** Taskforce (`Taskforce.ai`)  
-> **Former Working Titles:** `reco`, `reco.ai`, `SwarmLead FDE`  
+> **Former Working Titles:** `taskforce-ai`, `taskforce-ai.ai`, `SwarmLead FDE`  
 > **Updated Timestamp:** 2026-11-16  
 > **Status:** Fully Operational, Tested & Verified (Frontend + Backend + LangSmith Tracing)
 
@@ -68,16 +68,16 @@ Here is the exact record of work performed, the engineering challenges encounter
 
 ### 1. Environment & Secret Isolation
 - **Problem:** Secret keys and configuration values were previously scattered or partially hardcoded.
-- **Solution:** Consolidated all credentials into `.env`, `backend/.env`, and `frontend/.env`. Added comprehensive [.env.example](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/.env.example) and updated [.gitignore](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/.gitignore) to guarantee zero credential leakage.
+- **Solution:** Consolidated all credentials into `.env`, `backend/.env`, and `frontend/.env`. Added comprehensive [.env.example](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/.env.example) and updated [.gitignore](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/.gitignore) to guarantee zero credential leakage.
 
 ### 2. LangSmith Observability & Tracing
-- **Implementation:** Added full LangChain/LangSmith tracing capabilities via [config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/config.py) and [tracing.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/tracing.py).
+- **Implementation:** Added full LangChain/LangSmith tracing capabilities via [config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py) and [tracing.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/tracing.py).
 - **Configurations:**
   - `LANGSMITH_ENDPOINT`: `https://api.smith.langchain.com`
-  - `LANGSMITH_AGENT_ID`: `reco-agent`
+  - `LANGSMITH_AGENT_ID`: `taskforce-ai-agent`
   - `LANGSMITH_AGENT_ENVIRONMENT`: `local`
   - `LANGCHAIN_TRACING_V2`: `true`
-  - `LANGSMITH_PROJECT`: `fde-swarm-reco`
+  - `LANGSMITH_PROJECT`: `fde-swarm-taskforce-ai`
 
 ### 3. Removal of Ollama & Execution Latency Optimization
 - **Problem:** Local Ollama model calls were stalling swarm runs for 2 to 3+ minutes, causing severe HTTP timeouts and UI freezing.
@@ -89,41 +89,41 @@ Here is the exact record of work performed, the engineering challenges encounter
 
 ### 4. Overcoming Groq TPM Rate Limits (8,000 Tokens/Min)
 - **Problem:** Free-tier Groq has an 8,000 TPM limit. Sending full prior agent outputs to subsequent agents accumulated ~12,000 tokens across 6 agents, triggering HTTP 429 rate limits.
-- **Solution:** Implemented intelligent prompt compression in [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/workers.py):
+- **Solution:** Implemented intelligent prompt compression in [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/workers.py):
   - Agent prompts truncate prior worker context to essential excerpts (<180 chars).
   - Reduced total token consumption per swarm run to ~2,100 tokens (well within the 8,000 TPM window).
   - Configured graceful fall-through to Gemini whenever Groq returns HTTP 429.
 
 ### 5. Multi-Domain Adaptability (Eliminating Software-Only Bias)
 - **Problem:** The swarm was hardcoded with bash/git/python prompt templates. When the user entered non-software problems (e.g., *"i drank too much feeling lightheaded ..what should i do"*), the swarm nonsensically advised `find . -name "*.pyc" -delete` and `pytest`.
-- **Solution:** Completely overhauled agent system prompts in [tech_lead.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/tech_lead.py) and [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/workers.py). The agents now automatically detect problem domain (Medical, Operational, Financial, Engineering, Personal) and tailor vocabulary and solutions accordingly.
+- **Solution:** Completely overhauled agent system prompts in [tech_lead.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/tech_lead.py) and [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/workers.py). The agents now automatically detect problem domain (Medical, Operational, Financial, Engineering, Personal) and tailor vocabulary and solutions accordingly.
 
 ### 6. Simplified Problem Submission UI
 - **Problem:** Modal forced users to manually choose from software-centric dropdowns (`Domain / Discipline`, `Backend / Frontend`).
-- **Solution:** In [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/CreateProblemModal.tsx), removed manual domain selectors. Replaced with AI auto-detection and clean priority selectors (`Critical`, `High`, `Medium`, `Low`).
+- **Solution:** In [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/CreateProblemModal.tsx), removed manual domain selectors. Replaced with AI auto-detection and clean priority selectors (`Critical`, `High`, `Medium`, `Low`).
 
 ### 7. Clean Persona Naming Across Entire Stack
 - **Problem:** User interface displayed raw technical roles in parentheses, e.g. `Marcus Vance (Team Lead)`, `David Park (Solutions)`.
-- **Solution:** Stripped all parentheticals across frontend components ([CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/CreateProblemModal.tsx), [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx), [MetricsRibbon.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/MetricsRibbon.tsx)) and backend state initializers.
+- **Solution:** Stripped all parentheticals across frontend components ([CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/CreateProblemModal.tsx), [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx), [MetricsRibbon.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/MetricsRibbon.tsx)) and backend state initializers.
 
 ### 8. Full Rebrand to Taskforce (`Taskforce.ai`)
-- **Logo Asset:** Created custom vector graphic [taskforce.svg](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/public/taskforce.svg).
+- **Logo Asset:** Created custom vector graphic [taskforce.svg](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/public/taskforce.svg).
 - **Navigation:** Updated Header to show `Taskforce.ai` with gold `.ai` and `AUTONOMOUS` badge.
 - **Page Head:** Configured favicon `/taskforce.svg` and `<title>Taskforce | Autonomous Multi-Agent Problem Floor</title>`.
-- **Theme Support:** Migrated theme storage key to `taskforce_theme` in [ThemeContext.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/context/ThemeContext.tsx).
+- **Theme Support:** Migrated theme storage key to `taskforce_theme` in [ThemeContext.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/context/ThemeContext.tsx).
 - **Configs:** Updated `APP_NAME="Taskforce Autonomous Agent Platform"` in backend and frontend configurations.
 
 ### 9. Human-Readable Formatted Viewer & Direct Presentation
 - **Problem:** "Verified Production Resolution" and "Automated Verification Report" were crammed into a compact, neon-green monospace terminal block where markdown tables (`| Step | Action |`) and headings (`##`) appeared as unformatted pipes and hashes.
-- **Solution:** Built custom native [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/FormattedContent.tsx) that parses markdown tables into real responsive HTML tables with styled headers, alternating rows, and micro-badges (Yes/No/Pass/Fail). Headings, callout alert boxes (`>`), checklists, and code diffs are rendered with clean typography. In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx), removed the raw view and copy buttons to present clean, distraction-free formatted reading directly.
+- **Solution:** Built custom native [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/FormattedContent.tsx) that parses markdown tables into real responsive HTML tables with styled headers, alternating rows, and micro-badges (Yes/No/Pass/Fail). Headings, callout alert boxes (`>`), checklists, and code diffs are rendered with clean typography. In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx), removed the raw view and copy buttons to present clean, distraction-free formatted reading directly.
 
 ### 10. Concise Generation & Truncation Elimination (Zero Broken Rows, Lower Token Cost)
 - **Problem:** Excessive generation length caused responses to hit token ceilings and cut off mid-sentence / mid-table (e.g. `| Any new or worsening pain | Could indicate organ` or `| You’re pregnant or planning to`).
-- **Solution:** Implemented concise generation directives across [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/workers.py) and [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/llm_client.py) (strictly under 350–400 words, maximum 1–2 focused summary tables). Configured `max_tokens=1500` headroom on all cloud LLM adapters to prevent hard cutoffs. Added `sanitize_complete_output` in [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/llm_client.py) and [graph.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/graph.py) plus defensive filtering in [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/FormattedContent.tsx) to ensure zero dangling pipes or incomplete sentences ever display.
+- **Solution:** Implemented concise generation directives across [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/workers.py) and [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/llm_client.py) (strictly under 350–400 words, maximum 1–2 focused summary tables). Configured `max_tokens=1500` headroom on all cloud LLM adapters to prevent hard cutoffs. Added `sanitize_complete_output` in [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/llm_client.py) and [graph.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/graph.py) plus defensive filtering in [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/FormattedContent.tsx) to ensure zero dangling pipes or incomplete sentences ever display.
 
 ### 11. Complete Removal of Crypto / SAFU Terminology
 - **Problem:** The platform is a general multi-domain autonomous problem resolution engine, but legacy components contained crypto-specific terminology like "SAFU", "SAFU Guarantee", and "SAFU Standard".
-- **Solution:** Fully purged all SAFU and crypto phrasing across [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx), [MetricsRibbon.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/MetricsRibbon.tsx), and design specifications. Replaced with universal professional terms ("Verified", "Zero Defect", "Verification Guarantee", "Platform Architecture").
+- **Solution:** Fully purged all SAFU and crypto phrasing across [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx), [MetricsRibbon.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/MetricsRibbon.tsx), and design specifications. Replaced with universal professional terms ("Verified", "Zero Defect", "Verification Guarantee", "Platform Architecture").
 
 ### 12. Complete Removal of Footer
 - **Problem:** The footer added unnecessary visual clutter to an operational application dashboard.
@@ -131,7 +131,7 @@ Here is the exact record of work performed, the engineering challenges encounter
 
 ### 13. Streamlined Problem Submission Modal (3 Focused Fields)
 - **Problem:** The modal contained redundant optional textareas for code snippets and log traces that cluttered submission.
-- **Solution:** Streamlined [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/CreateProblemModal.tsx) down to exactly 3 essential fields: **Problem Title \***, **Swarm Capacity: {n} Specialists**, and **Problem Context \***.
+- **Solution:** Streamlined [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/CreateProblemModal.tsx) down to exactly 3 essential fields: **Problem Title \***, **Swarm Capacity: {n} Specialists**, and **Problem Context \***.
 
 ### 14. Purged Legacy Problems & Seeded Diverse Multi-Domain Mix
 - **Problem:** Database contained duplicate, software-only legacy scenarios and test artifacts.
@@ -139,11 +139,11 @@ Here is the exact record of work performed, the engineering challenges encounter
 
 ### 15. Removal of Language & Category Badges from UI
 - **Problem:** The problem list and detail views displayed badges like `DATABASE`, `STRATEGY`, `DEVOPS`, etc., which do not exist in the creation form and caused confusion.
-- **Solution:** Removed category/language badge tags from [ProblemList.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemList.tsx) and [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx). The UI now cleanly presents the problem title, agent count, and status without distracting labels.
+- **Solution:** Removed category/language badge tags from [ProblemList.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemList.tsx) and [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx). The UI now cleanly presents the problem title, agent count, and status without distracting labels.
 
 ### 16. Seeded 25 Alternating Multi-Disciplinary Problems
 - **Problem:** User required at least 20 diverse problems spanning alternating fields (IT → Healthcare → Automobile → Finance → Math).
-- **Solution:** Updated [seed.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/seed.py) with 25 realistic, high-impact scenarios cycling across:
+- **Solution:** Updated [seed.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/seed.py) with 25 realistic, high-impact scenarios cycling across:
   - **IT** (Distributed Locks, Kubernetes FinOps, PostgreSQL WAL, React 19 Re-renders, Kafka Rebalances)
   - **Healthcare** (Migraine Triage, Pediatric Bronchospasm, Warfarin Interactions, Anaphylaxis, DKA Emergency)
   - **Automobile** (Turbo Wastegate Actuators, Dual-Clutch Shudders, EV Battery Thermals, EPS Sensors, CAN Bus Bus-Off)
@@ -153,8 +153,8 @@ Here is the exact record of work performed, the engineering challenges encounter
 
 ### 17. Qdrant Vector Database + Document / PDF RAG Engine
 - **Implementation:** Added full Retrieval-Augmented Generation (RAG) powered by Qdrant vector database:
-  - **Document Parsing:** Users can upload `.pdf`, `.txt`, `.md`, `.doc`, `.json`, or `.log` files in [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/CreateProblemModal.tsx). The backend extracts text using `pypdf` and text decoders via `POST /api/upload-document`.
-  - **Vector Ingestion & Storage:** Handled by [rag_service.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/services/rag_service.py). Text is chunked with sliding-window sentence boundaries, transformed into 384-dimensional dense semantic vectors, and persisted into Qdrant collection `taskforce_rag`.
+  - **Document Parsing:** Users can upload `.pdf`, `.txt`, `.md`, `.doc`, `.json`, or `.log` files in [CreateProblemModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/CreateProblemModal.tsx). The backend extracts text using `pypdf` and text decoders via `POST /api/upload-document`.
+  - **Vector Ingestion & Storage:** Handled by [rag_service.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/services/rag_service.py). Text is chunked with sliding-window sentence boundaries, transformed into 384-dimensional dense semantic vectors, and persisted into Qdrant collection `taskforce_rag`.
   - **Swarm Agent RAG Retrieval:** During problem solving, the orchestrator queries Qdrant for top-K relevant chunks matching problem title and description. A structured RAG context dossier is created, an event log `RAG_RETRIEVAL` is broadcasted, and all swarm agents receive the retrieved context.
   - **Streamlined Document Status:** Cleanly displays attached document reference (`Qdrant RAG: <filename>`) directly on the problem view while keeping internal vector mechanics under the hood.
 
@@ -172,22 +172,22 @@ Here is the exact record of work performed, the engineering challenges encounter
   - **Removed `backend/reset_problems_to_pending.py`:** Removed redundant raw-SQL script superseded by `seed.py`.
   - **Removed `backend/test_pdf_flow.py`:** Removed temporary standalone test script; all assertions are permanently unified inside `backend/tests/test_swarm.py` (which runs via `pytest`).
   - **Cleaned TypeScript Build Info:** Purged `tsconfig.app.tsbuildinfo` and `tsconfig.node.tsbuildinfo`.
-  - **Removed Dead Configs:** Removed unused legacy settings `OLLAMA_BASE_URL` and `OLLAMA_MODEL` from [config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/config.py).
+  - **Removed Dead Configs:** Removed unused legacy settings `OLLAMA_BASE_URL` and `OLLAMA_MODEL` from [config.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py).
   - **Net Reduction:** Purged over 25.4 MB of dead binaries, redundant scripts, and duplicate dependencies with 100% test pass rate preserved.
 
 ### 20. Frontend Chunk Display Removal (Streamlined RAG Experience)
 - **Rationale:** Exposing raw vector chunks, character counts, and inspector modals in the end-user interface introduces unnecessary visual clutter and leaks low-level vector mechanics that do not belong in user workflows.
 - **Implementation:**
-  - Removed "Inspect Vector Chunks" button and the inspection modal from [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx).
+  - Removed "Inspect Vector Chunks" button and the inspection modal from [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx).
   - Streamlined the document header into a clean badge: `Qdrant RAG: <filename>`.
   - Simplified the document status card to: `Attached Document Active (Qdrant Vector DB) • Document source: <filename> • Synced for autonomous agent retrieval`.
-  - Purged unused `fetchProblemRagChunks` API call and chunk interfaces from [api.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/api.ts) and [types.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/types.ts).
+  - Purged unused `fetchProblemRagChunks` API call and chunk interfaces from [api.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/api.ts) and [types.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/types.ts).
   - Result: Cleaner UI, zero console chatter, and reduced frontend bundle size with 100% type safety.
 
 ### 21. VS Code Editor Rendering & Elimination of Code-in-Table Jibberish
 - **Problem:** LLM responses previously produced markdown tables attempting to embed multi-line code snippets inside table cells (`| Area | Fix | Code Snippet |`). In standard CommonMark/GFM, tables cannot contain newlines, resulting in broken table rows, squashed single-line code blocks, and raw pipe/backtick artifacts (`|`, ```` |`).
 - **Solution:**
-  - **Auto-Unpacking Normalizer:** Built `normalizeCodeTablesAndFences` in [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/FormattedContent.tsx) and `unpack_tables_with_code` in [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/llm_client.py). Automatically unpacks table cells containing code blocks into clean section headers, descriptions, and standalone code blocks.
+  - **Auto-Unpacking Normalizer:** Built `normalizeCodeTablesAndFences` in [FormattedContent.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/FormattedContent.tsx) and `unpack_tables_with_code` in [llm_client.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/llm_client.py). Automatically unpacks table cells containing code blocks into clean section headers, descriptions, and standalone code blocks.
   - **VS Code Style Code Block Component:** Redesigned `CodeBlockRenderer` into a true code editor UI featuring:
     - Traffic light window controls (`red`, `yellow`, `green` dots)
     - Language tag badges (`TYPESCRIPT`, `JS`, `PYTHON`, `BASH`, `DIFF`)
@@ -195,15 +195,15 @@ Here is the exact record of work performed, the engineering challenges encounter
     - Line hover highlight (`hover:bg-[#161b22]/70`)
     - One-click copy with instant visual checkmark feedback
     - Clean font and proper indentation with zero trailing pipes or markdown symbols
-  - **Prompt Directives:** Added explicit negative constraints to [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/agents/workers.py) instructing agents to never place code blocks inside markdown tables.
+  - **Prompt Directives:** Added explicit negative constraints to [workers.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/agents/workers.py) instructing agents to never place code blocks inside markdown tables.
   - **Database Sanitization:** Cleaned existing resolved problem records in SQLite (`backend/fde_swarm.db`) to immediate VS Code layout.
 
 ### 22. Comprehensive Security Hardening: Rate Limiting, XSS Sanitization & Secret Isolation
-- **Governance Update:** Authored complete [SECURITY.md](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/docs/SECURITY.md) (v2.0.0) defining Defense-in-Depth layers, threat matrices, and implementation milestones.
-- **Sliding-Window Rate Limiter:** Hardened [middleware.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/middleware.py) with route normalization (preventing evasion via problem ID manipulation), method differentiation (strict limits on `POST /solve` and `POST /upload-document`), and standard `429 Too Many Requests` JSON responses with `Retry-After` headers.
-- **XSS & Injection Protection:** Implemented Pydantic v2 field validators in [schemas.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/schemas.py) and [main.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/main.py) stripping malicious `<script>` tags, inline event handlers (`onerror=`, `onload=`), `javascript:` URIs, and path traversal sequences (`../`).
-- **Secret & API Key Isolation:** Added `secretLeakGuardPlugin()` in [vite.config.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/vite.config.ts) to audit bundle chunks during build time and halt compilation if any commercial LLM or private key pattern (`AIza...`, `gsk_...`, `sk-...`, `lsv2_...`) is discovered. Verified zero exposed keys.
-- **Automated Verification:** Added dedicated security test cases in [test_swarm.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/tests/test_swarm.py) validating rate limit triggers, XSS stripping, and CSP headers. 7/7 tests passing.
+- **Governance Update:** Authored complete [SECURITY.md](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/docs/SECURITY.md) (v2.0.0) defining Defense-in-Depth layers, threat matrices, and implementation milestones.
+- **Sliding-Window Rate Limiter:** Hardened [middleware.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/middleware.py) with route normalization (preventing evasion via problem ID manipulation), method differentiation (strict limits on `POST /solve` and `POST /upload-document`), and standard `429 Too Many Requests` JSON responses with `Retry-After` headers.
+- **XSS & Injection Protection:** Implemented Pydantic v2 field validators in [schemas.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/schemas.py) and [main.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/main.py) stripping malicious `<script>` tags, inline event handlers (`onerror=`, `onload=`), `javascript:` URIs, and path traversal sequences (`../`).
+- **Secret & API Key Isolation:** Added `secretLeakGuardPlugin()` in [vite.config.ts](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/vite.config.ts) to audit bundle chunks during build time and halt compilation if any commercial LLM or private key pattern (`AIza...`, `gsk_...`, `sk-...`, `lsv2_...`) is discovered. Verified zero exposed keys.
+- **Automated Verification:** Added dedicated security test cases in [test_swarm.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/tests/test_swarm.py) validating rate limit triggers, XSS stripping, and CSP headers. 7/7 tests passing.
 
 ### 23. Lightweight Non-Blocking Asynchronous UI State Architecture (Zero Main-Thread Freezing)
 - **Problem:** Attempting to stream word-by-word via Server-Sent Events at 12–15ms intervals triggered hundreds of re-renders and repeated markdown parsing per second, saturating the browser main-thread, locking up React 19's event loop, and causing the frontend to freeze.
@@ -220,7 +220,7 @@ Here is the exact record of work performed, the engineering challenges encounter
 ### 24. Universal Domain Adaptation & Elimination of Developer-Only Phrasing
 - **Problem:** User noted that progress indicators and titles contained software-only vocabulary (e.g. `QA Boundary Validation`, `Solutions & Patch`, `Safety & Security Audit`, `Code Patch`), even though Taskforce is designed to solve any problem (medical, automotive, financial, personal, emergency, scientific). Furthermore, `!problem.language` in `ProblemDetail.tsx` erroneously flagged all unclassified problems as programming problems.
 - **Solution:**
-  - **Fixed `isProgramming` Invariant:** In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx), ensured `isProgramming` only evaluates to true when problem content or language explicitly indicates software or code. Non-software problems now cleanly display `Problem & Context`, `Verified Resolution`, and `Context, Data & Specifications`.
+  - **Fixed `isProgramming` Invariant:** In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx), ensured `isProgramming` only evaluates to true when problem content or language explicitly indicates software or code. Non-software problems now cleanly display `Problem & Context`, `Verified Resolution`, and `Context, Data & Specifications`.
   - **Universal Specialist Persona Roles:** Replaced software-centric job titles with universal, domain-agnostic specializations:
     - **Elena Rostova:** `Diagnostics Specialist` (Investigates underlying symptoms, root mechanisms, timelines)
     - **David Park:** `Action Protocol Craftsman` (Formulates step-by-step procedures, actionable remedies, solutions)
@@ -233,7 +233,7 @@ Here is the exact record of work performed, the engineering challenges encounter
 ### 25. Intelligent Lifecycle-Driven Tab Auto-Navigation Protocol
 - **Problem:** When navigating between problems or deploying the swarm, users had to manually switch tabs back and forth to inspect problem context, monitor team deliverables, and view the final resolution.
 - **Solution:**
-  - **State-Guided Lifecycle Transitions:** In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/frontend/src/components/ProblemDetail.tsx), orchestrated an intuitive automatic tab flow:
+  - **State-Guided Lifecycle Transitions:** In [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx), orchestrated an intuitive automatic tab flow:
     1. **Selection Flow (`problem.id` change):** Selecting any problem on the left floor defaults the workspace view to the **Problem & Context** tab (`'problem'`).
     2. **Execution Flow (Deploy Swarm):** Clicking "Deploy Swarm" automatically transitions the view to **Team Deliverables** (`'swarm'`) to observe active investigation indicators and specialist progress.
     3. **Resolution Flow (Swarm Completion):** As soon as results return and the problem status updates to `RESOLVED`, the view automatically transitions to **Verified Solution** (`'solution'`) to showcase the synthesized resolution and verification report.
@@ -243,8 +243,8 @@ Here is the exact record of work performed, the engineering challenges encounter
 ### 26. Native CLI Entrypoint: `uv run server` Backend Runner
 - **Problem:** Developers and operators had to memorize and type the verbose command `uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload` whenever launching the backend API.
 - **Solution:**
-  - **Exposed `start()` Callable:** In [backend/app/main.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/app/main.py), encapsulated server startup logic into a typed entrypoint function `def start() -> None:` that runs `uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)`.
-  - **Registered `[project.scripts]` in `pyproject.toml`:** In [backend/pyproject.toml](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/reco/backend/pyproject.toml), added:
+  - **Exposed `start()` Callable:** In [backend/app/main.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/main.py), encapsulated server startup logic into a typed entrypoint function `def start() -> None:` that runs `uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=settings.DEBUG)`.
+  - **Registered `[project.scripts]` in `pyproject.toml`:** In [backend/pyproject.toml](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/pyproject.toml), added:
     ```toml
     [project.scripts]
     server = "app.main:start"
@@ -253,12 +253,35 @@ Here is the exact record of work performed, the engineering challenges encounter
   - **Developer Experience:** Now running `uv run server` inside `backend/` instantly starts the FastAPI server on `127.0.0.1:8000` with hot-reload and file watchers enabled.
   - **Verification:** `uv run ruff check .` and `uv run pytest tests/` pass 100% with 0 errors.
 
+### 27. Interactive Delete Confirmation Modal (Binance Theme)
+- **Problem:** Deleting a problem triggered a native browser `window.confirm` / alert dialog, creating a jarring, unstyled user experience.
+- **Solution:**
+  - Designed and implemented [DeleteConfirmationModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/DeleteConfirmationModal.tsx) conforming to the dark/light Binance aesthetic (`#1e2329`, `#2b3139`, `#f6465d`).
+  - Integrated permanent deletion warning, target problem title preview, escape key / click-outside dismissal, and loading spinner state to prevent duplicate submissions.
+  - Purged all `window.confirm` and native alerts from [ProblemList.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemList.tsx) and [ProblemDetail.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx).
+
+### 28. Multi-Tenant User Authentication & Problem Isolation
+- **Problem:** All problems were globally visible to every visitor on the platform without tenant boundaries. Users could see, edit, and delete each other's problems.
+- **Solution:**
+  - **User & Isolation Model:** Added `User` table with unique `username`, `name`, `hashed_password` (PBKDF2-HMAC-SHA256, 100k rounds, salt), and linked `user_id` foreign key on `Problem` in [models.py](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/models.py).
+  - **HttpOnly Cookie Token Architecture:**
+    - Short-lived Access Token (15m expiry) in `access_token` HttpOnly cookie.
+    - Long-lived Refresh Token (7d expiry) in `refresh_token` HttpOnly cookie.
+    - Automatic silent refresh mechanism in frontend `smartFetch` retry handler.
+  - **Endpoint Authorization & Scoping:**
+    - `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`.
+    - Every problem operation (`GET`, `POST`, `DELETE`, `solve`) enforces `Problem.user_id == current_user.id`. Users can neither view nor delete problems created by other tenants.
+  - **Interactive Auth Modal & Header Badging:**
+    - Created [AuthModal.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/AuthModal.tsx) with login/register tabs, instant demo account autofill, and security indicators.
+    - Updated [Header.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/Header.tsx) with user profile badge and logout button.
+  - **Verification:** All 11 backend tests (`test_swarm.py` + `test_auth_isolation.py`) and Vite compilation pass with 0 errors.
+
 ---
 
 ## 5. Repository File Map & Key Artifacts
 
 ```
-reco/
+taskforce-ai/
 ├── AGENTS.md                                   # Master Autonomous Operating Charter & Invariants
 ├── STATUS.md                                   # THIS DOCUMENT (Canonical Handover & State)
 ├── README.md                                   # High-level overview & setup instructions
