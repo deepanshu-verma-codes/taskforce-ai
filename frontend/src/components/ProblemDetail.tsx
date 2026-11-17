@@ -16,6 +16,7 @@ import {
   Zap,
   Database,
   Loader2,
+  Trash2,
 } from 'lucide-react';
 import { FormattedContent } from './FormattedContent';
 
@@ -24,13 +25,25 @@ interface ProblemDetailProps {
   logs: AgentLog[];
   onSolve: (id: string) => void;
   isSolving: boolean;
+  onRequestDelete?: () => void;
 }
+
+// Universal, domain-agnostic metric name formatter for any problem type
+const getUniversalMetricName = (name: string): string => {
+  const trimmed = name.trim();
+  if (/code\s*correctness/i.test(trimmed)) return 'Solution Accuracy';
+  if (/tech\s*lead\s*confidence/i.test(trimmed)) return 'Lead Confidence';
+  if (/edge\s*case\s*coverage/i.test(trimmed)) return 'Scenario Coverage';
+  if (/security\s*(&|and)?\s*vulnerability/i.test(trimmed)) return 'Safety & Risk';
+  return trimmed;
+};
 
 export const ProblemDetail: React.FC<ProblemDetailProps> = ({
   problem,
   logs,
   onSolve,
   isSolving,
+  onRequestDelete,
 }) => {
   // Step 1: Default to 'problem' (Problem & Context) tab
   const [activeTab, setActiveTab] = useState<'problem' | 'swarm' | 'solution'>('problem');
@@ -97,8 +110,19 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
           <h2 className="text-base font-bold text-[#181a20] dark:text-white tracking-tight">{problem.title}</h2>
         </div>
 
-        {/* Primary Action Button: Black text on Binance Yellow */}
+        {/* Primary Action Buttons */}
         <div className="flex items-center gap-2 shrink-0">
+          {onRequestDelete && (
+            <button
+              onClick={onRequestDelete}
+              className="flex items-center gap-1.5 px-3 h-10 rounded-md border border-[#eaecef] dark:border-[#2b3139] hover:border-[#f6465d] bg-white dark:bg-[#1e2329] text-[#707a8a] hover:text-[#f6465d] hover:bg-[#f6465d]/10 text-xs font-medium transition-colors cursor-pointer"
+              title="Delete this problem"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Delete</span>
+            </button>
+          )}
+
           {!isResolved ? (
             <button
               onClick={() => {
@@ -189,6 +213,21 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
         {/* TAB 1: THE PROBLEM */}
         {activeTab === 'problem' && (
           <div className="space-y-4 max-w-4xl">
+            {/* Problem Title Card */}
+            <div className="p-4 rounded-xl bg-white dark:bg-[#1e2329] border border-[#eaecef] dark:border-[#2b3139] shadow-xs dark:shadow-none">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#FCD535]/15 text-[#b8860b] dark:text-[#FCD535] font-bold uppercase tracking-wider">
+                  Problem Title
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#f5f5f5] dark:bg-[#12161c] text-[#707a8a] border border-[#eaecef] dark:border-[#2b3139] uppercase">
+                  {problem.language || 'general'}
+                </span>
+              </div>
+              <h2 className="text-base font-bold text-[#181a20] dark:text-white leading-snug">
+                {problem.title}
+              </h2>
+            </div>
+
             {/* Qdrant Vector Storage Card (RAG - ONLY displayed when a document/PDF was uploaded) */}
             {Boolean(problem.has_rag && problem.document_name) && (
               <div className="p-4 rounded-xl bg-gradient-to-r from-[#FCD535]/10 via-[#3b82f6]/5 to-transparent border border-[#FCD535]/30 shadow-xs">
@@ -216,7 +255,7 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
             {/* Description Card */}
             <div className="p-4 rounded-xl bg-white dark:bg-[#1e2329] border border-[#eaecef] dark:border-[#2b3139] shadow-xs dark:shadow-none">
               <h3 className="text-xs font-bold text-[#707a8a] uppercase tracking-wider mb-2">
-                Problem Narrative & Parameters
+                Problem Context & Description
               </h3>
               <p className="text-xs text-[#181a20] dark:text-[#eaecef] leading-relaxed whitespace-pre-wrap">
                 {problem.description}
@@ -416,9 +455,16 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   {problem.evaluations.map((ev, i) => (
                     <div key={i} className="p-3 rounded-lg bg-[#f8f9fa] dark:bg-[#12161c] border border-[#eaecef] dark:border-[#2b3139] flex flex-col justify-between">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs font-medium text-[#707a8a] line-clamp-1">{ev.metric_name}</span>
-                        <span className="font-mono text-xs font-bold text-[#0ecb81]">{ev.score}%</span>
+                      <div className="flex items-center justify-between gap-2.5 mb-1.5">
+                        <span
+                          className="text-xs font-medium text-[#707a8a] truncate min-w-0 flex-1"
+                          title={getUniversalMetricName(ev.metric_name)}
+                        >
+                          {getUniversalMetricName(ev.metric_name)}
+                        </span>
+                        <span className="font-mono text-xs font-bold text-[#0ecb81] shrink-0">
+                          {ev.score}%
+                        </span>
                       </div>
                       <div className="w-full bg-[#eaecef] dark:bg-[#2b3139] h-1.5 rounded-full overflow-hidden">
                         <div className="bg-[#0ecb81] h-full rounded-full transition-all duration-500" style={{ width: `${ev.score}%` }} />

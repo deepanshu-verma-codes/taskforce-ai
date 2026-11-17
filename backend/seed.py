@@ -6,6 +6,7 @@ from sqlalchemy import delete
 from app.database import AsyncSessionLocal, init_db
 from app.models import AgentLog, AgentRun, EvaluationMetric, Problem
 from app.schemas import ProblemCreate
+from app.services.auth_service import get_user_by_username
 from app.services.problem_service import create_problem
 
 DIVERSE_PROBLEMS = [
@@ -306,8 +307,11 @@ async def seed():
         print(
             f"Seeding {len(DIVERSE_PROBLEMS)} diverse engineering & real-world problems into SQLite..."
         )
+        deepanshu = await get_user_by_username(db, "deepanshu_verma")
+        target_user_id = deepanshu.id if deepanshu else None
+
         for p in DIVERSE_PROBLEMS:
-            created = await create_problem(db, p)
+            created = await create_problem(db, p, user_id=target_user_id)
             print(f"  + [{created.language.upper()}] {created.title} (ID: {created.id})")
 
         # 26. Attached PDF Problem with Qdrant Vector Storage
@@ -332,7 +336,7 @@ async def seed():
                 document_name="sample_incident_report.pdf",
                 document_text=pdf_text,
             )
-            created_pdf = await create_problem(db, pdf_problem)
+            created_pdf = await create_problem(db, pdf_problem, user_id=target_user_id)
             print(
                 f"  + [PDF + QDRANT RAG] {created_pdf.title} (ID: {created_pdf.id}, Chunks: {created_pdf.rag_chunks_count})"
             )

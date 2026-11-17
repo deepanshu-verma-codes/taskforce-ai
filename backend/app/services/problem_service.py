@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import delete, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.orm import selectinload
@@ -17,7 +17,9 @@ from app.services.cost_tracker import ExecutionTimer
 from app.services.langsmith_tracker import create_trace_run, log_evaluation_feedback
 
 
-async def create_problem(db: AsyncSession, data: ProblemCreate) -> Problem:
+async def create_problem(
+    db: AsyncSession, data: ProblemCreate, user_id: str | None = None
+) -> Problem:
     from app.agents.semantic_solver import detect_problem_type
 
     if data.language and data.language.lower() not in ["auto", "general"]:
@@ -55,6 +57,7 @@ async def create_problem(db: AsyncSession, data: ProblemCreate) -> Problem:
 
     prob = Problem(
         id=prob_id,
+        user_id=user_id,
         title=data.title,
         description=data.description,
         code_snippet=data.code_snippet,
@@ -72,17 +75,20 @@ async def create_problem(db: AsyncSession, data: ProblemCreate) -> Problem:
     return prob
 
 
-async def get_all_problems(db: AsyncSession) -> list[Problem]:
-    stmt = (
-        select(Problem)
-        .options(selectinload(Problem.agent_runs), selectinload(Problem.evaluations))
-        .order_by(Problem.created_at.desc())
+async def get_all_problems(db: AsyncSession, user_id: str | None = None) -> list[Problem]:
+    stmt = select(Problem).options(
+        selectinload(Problem.agent_runs), selectinload(Problem.evaluations)
     )
+    if user_id:
+        stmt = stmt.where(Problem.user_id == user_id)
+    stmt = stmt.order_by(Problem.created_at.desc())
     result = await db.execute(stmt)
     return list(result.scalars().all())
 
 
-async def get_problem_by_id(db: AsyncSession, problem_id: str) -> Problem | None:
+async def get_problem_by_id(
+    db: AsyncSession, problem_id: str, user_id: str | None = None
+) -> Problem | None:
     stmt = (
         select(Problem)
         .options(
@@ -92,11 +98,28 @@ async def get_problem_by_id(db: AsyncSession, problem_id: str) -> Problem | None
         )
         .where(Problem.id == problem_id)
     )
+    if user_id:
+        stmt = stmt.where(Problem.user_id == user_id)
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
 
-async def get_problem_logs(db: AsyncSession, problem_id: str) -> list[AgentLog]:
+async def delete_problem(db: AsyncSession, problem_id: str, user_id: str | None = None) -> bool:
+    problem = await get_problem_by_id(db, problem_id, user_id=user_id)
+    if not problem:
+        return False
+    await db.delete(problem)
+    await db.commit()
+    return True
+
+
+async def get_problem_logs(
+    db: AsyncSession, problem_id: str, user_id: str | None = None
+) -> list[AgentLog]:
+    if user_id:
+        problem = await get_problem_by_id(db, problem_id, user_id=user_id)
+        if not problem:
+            return []
     stmt = (
         select(AgentLog).where(AgentLog.problem_id == problem_id).order_by(AgentLog.timestamp.asc())
     )
@@ -104,8 +127,10 @@ async def get_problem_logs(db: AsyncSession, problem_id: str) -> list[AgentLog]:
     return list(result.scalars().all())
 
 
-async def solve_problem_with_swarm(db: AsyncSession, problem_id: str) -> Problem | None:
-    problem = await get_problem_by_id(db, problem_id)
+async def solve_problem_with_swarm(
+    db: AsyncSession, problem_id: str, user_id: str | None = None
+) -> Problem | None:
+    problem = await get_problem_by_id(db, problem_id, user_id=user_id)
     if not problem:
         return None
 
@@ -343,26 +368,86 @@ async def solve_problem_with_swarm(db: AsyncSession, problem_id: str) -> Problem
     return problem
 
 
-async def get_dashboard_stats(db: AsyncSession) -> dict[str, Any]:
-    total_problems = (await db.execute(select(func.count(Problem.id)))).scalar() or 0
-    resolved = (
-        await db.execute(select(func.count(Problem.id)).where(Problem.status == "RESOLVED"))
-    ).scalar() or 0
-    in_progress = (
-        await db.execute(select(func.count(Problem.id)).where(Problem.status == "IN_PROGRESS"))
-    ).scalar() or 0
+async def reset_all_problems_to_pending(db: AsyncSession, user_id: str | None = None) -> int:
+    """Resets all problems for the specified user to PENDING, purging runs, logs, and scorecards."""
+    stmt = select(Problem)
+    if user_id:
+        stmt = stmt.where(Problem.user_id == user_id)
+    result = await db.execute(stmt)
+    problems = list(result.scalars().all())
+    if not problems:
+        return 0
 
-    total_tokens = (await db.execute(select(func.sum(Problem.total_tokens)))).scalar() or 0
-    total_cost = (await db.execute(select(func.sum(Problem.total_cost)))).scalar() or 0.0
-    avg_latency = (await db.execute(select(func.avg(Problem.duration_ms)))).scalar() or 0.0
+    problem_ids = [p.id for p in problems]
 
-    critique_logs_count = (
-        await db.execute(
-            select(func.count(AgentLog.id)).where(
-                AgentLog.event_type.in_(["CRITIQUE", "CORRECTION"])
+    # Delete associated execution artifacts
+    await db.execute(delete(AgentLog).where(AgentLog.problem_id.in_(problem_ids)))
+    await db.execute(delete(AgentRun).where(AgentRun.problem_id.in_(problem_ids)))
+    await db.execute(delete(EvaluationMetric).where(EvaluationMetric.problem_id.in_(problem_ids)))
+
+    # Reset all problem status and solution attributes
+    for p in problems:
+        p.status = "PENDING"
+        p.solution_patch = None
+        p.solution_explanation = None
+        p.verification_report = None
+        p.tech_lead_verdict = None
+        p.quality_score = 0.0
+        p.duration_ms = 0
+        p.total_tokens = 0
+        p.prompt_tokens = 0
+        p.completion_tokens = 0
+        p.total_cost = 0.0
+
+    await db.commit()
+    return len(problems)
+
+
+async def get_dashboard_stats(db: AsyncSession, user_id: str | None = None) -> dict[str, Any]:
+    total_problems_stmt = select(func.count(Problem.id))
+    if user_id:
+        total_problems_stmt = total_problems_stmt.where(Problem.user_id == user_id)
+    total_problems = (await db.execute(total_problems_stmt)).scalar() or 0
+
+    resolved_stmt = select(func.count(Problem.id)).where(Problem.status == "RESOLVED")
+    if user_id:
+        resolved_stmt = resolved_stmt.where(Problem.user_id == user_id)
+    resolved = (await db.execute(resolved_stmt)).scalar() or 0
+
+    in_prog_stmt = select(func.count(Problem.id)).where(Problem.status == "IN_PROGRESS")
+    if user_id:
+        in_prog_stmt = in_prog_stmt.where(Problem.user_id == user_id)
+    in_progress = (await db.execute(in_prog_stmt)).scalar() or 0
+
+    total_tokens_stmt = select(func.sum(Problem.total_tokens))
+    if user_id:
+        total_tokens_stmt = total_tokens_stmt.where(Problem.user_id == user_id)
+    total_tokens = (await db.execute(total_tokens_stmt)).scalar() or 0
+
+    total_cost_stmt = select(func.sum(Problem.total_cost))
+    if user_id:
+        total_cost_stmt = total_cost_stmt.where(Problem.user_id == user_id)
+    total_cost = (await db.execute(total_cost_stmt)).scalar() or 0.0
+
+    avg_latency_stmt = select(func.avg(Problem.duration_ms))
+    if user_id:
+        avg_latency_stmt = avg_latency_stmt.where(Problem.user_id == user_id)
+    avg_latency = (await db.execute(avg_latency_stmt)).scalar() or 0.0
+
+    if user_id:
+        critique_stmt = (
+            select(func.count(AgentLog.id))
+            .join(Problem, AgentLog.problem_id == Problem.id)
+            .where(
+                Problem.user_id == user_id,
+                AgentLog.event_type.in_(["CRITIQUE", "CORRECTION"]),
             )
         )
-    ).scalar() or 0
+    else:
+        critique_stmt = select(func.count(AgentLog.id)).where(
+            AgentLog.event_type.in_(["CRITIQUE", "CORRECTION"])
+        )
+    critique_logs_count = (await db.execute(critique_stmt)).scalar() or 0
 
     return {
         "total_problems": total_problems,

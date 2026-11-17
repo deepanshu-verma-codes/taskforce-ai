@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { Problem } from '../types';
-import { Bot, CheckCircle2, Clock, Search, AlertCircle, ChevronRight, Database } from 'lucide-react';
+import { Bot, CheckCircle2, Clock, Search, AlertCircle, ChevronRight, Database, RotateCcw, Trash2 } from 'lucide-react';
 
 interface ProblemListProps {
   problems: Problem[];
   selectedProblemId: string | null;
   onSelectProblem: (id: string) => void;
+  onResetAllToPending?: () => void;
+  onRequestDelete?: (problem: Problem) => void;
 }
 
 export const ProblemList: React.FC<ProblemListProps> = ({
   problems,
   selectedProblemId,
   onSelectProblem,
+  onResetAllToPending,
+  onRequestDelete,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTab, setFilterTab] = useState<'ALL' | 'PENDING' | 'RESOLVED'>('ALL');
@@ -44,38 +48,51 @@ export const ProblemList: React.FC<ProblemListProps> = ({
           />
         </div>
 
-        {/* Tab Filters */}
-        <div className="flex items-center gap-1.5 text-xs">
-          <button
-            onClick={() => setFilterTab('ALL')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
-              filterTab === 'ALL'
-                ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#b8860b] dark:text-[#FCD535] font-semibold'
-                : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
-            }`}
-          >
-            All Problems ({problems.length})
-          </button>
-          <button
-            onClick={() => setFilterTab('PENDING')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
-              filterTab === 'PENDING'
-                ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#f6465d] font-semibold'
-                : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
-            }`}
-          >
-            Pending ({pendingCount})
-          </button>
-          <button
-            onClick={() => setFilterTab('RESOLVED')}
-            className={`px-3 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
-              filterTab === 'RESOLVED'
-                ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#0ecb81] font-semibold'
-                : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
-            }`}
-          >
-            Resolved ({resolvedCount})
-          </button>
+        {/* Tab Filters & Reset All */}
+        <div className="flex items-center justify-between gap-1.5 text-xs">
+          <div className="flex items-center gap-1 overflow-x-auto">
+            <button
+              onClick={() => setFilterTab('ALL')}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
+                filterTab === 'ALL'
+                  ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#b8860b] dark:text-[#FCD535] font-semibold'
+                  : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
+              }`}
+            >
+              All ({problems.length})
+            </button>
+            <button
+              onClick={() => setFilterTab('PENDING')}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
+                filterTab === 'PENDING'
+                  ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#f6465d] font-semibold'
+                  : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
+              }`}
+            >
+              Pending ({pendingCount})
+            </button>
+            <button
+              onClick={() => setFilterTab('RESOLVED')}
+              className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer text-xs font-medium ${
+                filterTab === 'RESOLVED'
+                  ? 'bg-[#f0f2f5] dark:bg-[#2b3139] text-[#0ecb81] font-semibold'
+                  : 'text-[#707a8a] hover:text-[#181a20] dark:hover:text-[#eaecef] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139]/50'
+              }`}
+            >
+              Resolved ({resolvedCount})
+            </button>
+          </div>
+
+          {onResetAllToPending && (
+            <button
+              onClick={onResetAllToPending}
+              title="Set all problems to PENDING"
+              className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium border border-[#eaecef] dark:border-[#2b3139] hover:bg-[#f5f5f5] dark:hover:bg-[#2b3139] text-[#707a8a] hover:text-[#b8860b] dark:hover:text-[#FCD535] transition-colors cursor-pointer shrink-0"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>Reset All</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -95,7 +112,7 @@ export const ProblemList: React.FC<ProblemListProps> = ({
               <div
                 key={problem.id}
                 onClick={() => onSelectProblem(problem.id)}
-                className={`p-3 cursor-pointer transition-colors flex items-center justify-between gap-3 ${
+                className={`p-3 cursor-pointer transition-colors flex items-center justify-between gap-3 group ${
                   isSelected
                     ? 'bg-[#f5f5f5] dark:bg-[#2b3139] border-l-2 border-[#FCD535]'
                     : 'hover:bg-[#f8f9fa] dark:hover:bg-[#2b3139]/40 border-l-2 border-transparent'
@@ -133,7 +150,7 @@ export const ProblemList: React.FC<ProblemListProps> = ({
                   </div>
                 </div>
 
-                {/* Right Semantic Status */}
+                {/* Right Semantic Status & Actions */}
                 <div className="shrink-0 flex items-center gap-1.5 font-mono text-xs">
                   {isResolved && (
                     <span className="text-[#0ecb81] flex items-center gap-1 font-semibold">
@@ -152,6 +169,18 @@ export const ProblemList: React.FC<ProblemListProps> = ({
                       <AlertCircle className="h-3.5 w-3.5" />
                       Queued
                     </span>
+                  )}
+                  {onRequestDelete && (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        onRequestDelete(problem);
+                      }}
+                      className="p-1 rounded text-[#707a8a] hover:text-[#f6465d] hover:bg-[#f6465d]/10 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      title="Delete problem"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   )}
                   <ChevronRight className="h-3.5 w-3.5 text-[#707a8a]" />
                 </div>
