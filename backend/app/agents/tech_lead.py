@@ -5,7 +5,10 @@ from typing import Any
 from langsmith import traceable
 
 from app.agents.llm_client import call_llm_or_fallback
-from app.agents.semantic_solver import detect_problem_type
+from app.agents.semantic_solver import (
+    detect_problem_type,
+    get_contextual_format_guidance,
+)
 from app.agents.state import SwarmState
 
 
@@ -278,6 +281,14 @@ async def tech_lead_decompose(state: SwarmState) -> dict[str, Any]:
         else ""
     )
 
+    guidance = get_contextual_format_guidance(
+        domain,
+        state.get("problem_title", "") or "",
+        state.get("problem_description", "") or "",
+        state.get("code_snippet", "") or "",
+        state.get("logs", "") or "",
+    )
+
     prompt = f"""
 As Tech Lead & Domain Meta-Orchestrator, analyze this {domain.upper()} problem and create an assignment breakdown for {count} worker agents:
 Title: {state.get("problem_title")}
@@ -288,12 +299,13 @@ Context / Formula / Code / Specs:
 Logs / Observations / Symptoms:
 {state.get("logs", "None provided")}
 {rag_section}
+{guidance["directive"]}
 Workers available:
 {json.dumps(selected_workers, indent=2)}
 
 Provide:
 1. Domain decomposition & strategic attack plan (incorporate Qdrant vector context if present)
-2. Exact instructions for each worker agent
+2. Exact instructions for each worker agent (strictly adhering to the contextual format directive)
 """
 
     def fallback():
@@ -354,6 +366,34 @@ async def tech_lead_review(state: SwarmState) -> dict[str, Any]:
 
     should_intervene = iteration < max_iter
 
+    guidance = get_contextual_format_guidance(
+        domain,
+        state.get("problem_title", "") or "",
+        state.get("problem_description", "") or "",
+        state.get("code_snippet", "") or "",
+        state.get("logs", "") or "",
+    )
+
+    # Contextual Intelligence Check: Did a worker inappropriately output code for a non-technical problem?
+    has_hallucinated_code = (not guidance["allow_code"]) and any(
+        "```" in r.get("output", "") or "def " in r.get("output", "") for r in reports
+    )
+
+    if has_hallucinated_code:
+        should_intervene = True
+        for r in reports:
+            if "```" in r.get("output", "") or "def " in r.get("output", ""):
+                target_worker = r.get("agent_name", target_worker)
+                break
+
+    code_policy = (
+        "Contextual Format: Technical software solution with clean code patches expected."
+        if guidance["allow_code"]
+        else "CRITICAL POLICY - ZERO CODE ALLOWED: This is a non-technical inquiry. "
+        "Under NO circumstances should any worker provide Python code or programming functions. "
+        "If any worker included code, you MUST reject their deliverable and demand pure human action protocols."
+    )
+
     compact_reports = [
         {
             "agent": r.get("agent_name"),
@@ -371,6 +411,7 @@ async def tech_lead_review(state: SwarmState) -> dict[str, Any]:
 As Tech Lead & Domain Meta-Supervisor, review the deliverables submitted by your {domain.upper()} worker agents for:
 Problem: '{state.get("problem_title")}'
 Domain: {domain}
+{code_policy}
 
 Worker Deliverables Summary:
 {json.dumps(compact_reports, indent=2)}
@@ -380,6 +421,14 @@ Evaluate whether the solution is 100% comprehensive, if any edge cases/boundary 
 
     def fallback():
         if should_intervene:
+            if has_hallucinated_code:
+                return (
+                    f"Tech Lead Review (CRITICAL CORRECTION): Marcus Vance identified that {target_worker} inappropriately "
+                    "generated programming code snippets for a human/interpersonal inquiry. This is a severe breach of "
+                    "contextual intelligence. Code is strictly forbidden for this domain. Instructing {target_worker} to "
+                    "immediately purge all code syntax and provide compassionate, structured, actionable real-world steps."
+                )
+
             prob_type = detect_problem_type(
                 state.get("problem_title", ""),
                 state.get("problem_description", ""),

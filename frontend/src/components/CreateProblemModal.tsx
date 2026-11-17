@@ -109,7 +109,7 @@ export const CreateProblemModal: React.FC<CreateProblemModalProps> = ({
             </div>
             <div>
               <h3 className="text-sm font-bold text-[#181a20] dark:text-white">Deploy Swarm to Problem</h3>
-              <p className="text-[11px] text-[#707a8a]">Autonomous multi-agent swarm solving any problem — code, health, math, mechanics, or strategy</p>
+              <p className="text-[11px] text-[#707a8a]">Autonomous multi-agent swarm solving any problem — code, health, math, mechanics, strategy and many more </p>
             </div>
           </div>
           <button

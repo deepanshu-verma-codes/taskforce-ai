@@ -6,6 +6,7 @@ automotive engineering, and multi-domain human problems.
 """
 
 import re
+from typing import Any
 
 
 def detect_problem_type(title: str, description: str, context: str, logs: str) -> str:
@@ -133,14 +134,35 @@ def detect_problem_type(title: str, description: str, context: str, logs: str) -
     ):
         return "automobile"
 
-    # 6. Casual conversation / life advice / personal
+    # 6. Casual conversation / life advice / personal / relationships / breakups
     if any(
         k in combined
         for k in [
+            "breakup",
+            "break up",
+            "break p",
+            "break-up",
+            "girlfriend",
+            "boyfriend",
+            "partner",
+            "spouse",
+            "husband",
+            "wife",
+            "relationship",
+            "dating",
+            "heartbreak",
+            "heartbroken",
+            "divorce",
+            "lonely",
+            "alone",
+            "crying",
+            "depressed",
+            "depression",
+            "grief",
+            "grieving",
             "feeling",
             "advice",
             "friend",
-            "relationship",
             "conversation",
             "sad",
             "happy",
@@ -195,6 +217,277 @@ def detect_problem_type(title: str, description: str, context: str, logs: str) -
         return "redis_thundering_herd"
 
     return "general"
+
+
+def is_programming_required(
+    title: str,
+    description: str = "",
+    context: str = "",
+    logs: str = "",
+    domain: str = "",
+) -> bool:
+    """Deterministically identifies whether a problem requires executable code patches.
+
+    Returns False for personal, health, relationship, breakup, automotive, or general life inquiries.
+    Returns True strictly when the inquiry concerns software systems, coding, or system scripts.
+    """
+    combined = f"{title} {description} {logs} {domain}".lower()
+    ctx = context or ""
+
+    life_indicators = [
+        "breakup",
+        "break up",
+        "break p",
+        "break-up",
+        "girlfriend",
+        "boyfriend",
+        "partner",
+        "spouse",
+        "husband",
+        "wife",
+        "relationship",
+        "dating",
+        "heartbreak",
+        "heartbroken",
+        "divorce",
+        "lonely",
+        "alone",
+        "crying",
+        "sad",
+        "feeling",
+        "depressed",
+        "depression",
+        "anxiety",
+        "anxious",
+        "stress",
+        "grief",
+        "mental health",
+        "health",
+        "medical",
+        "first aid",
+        "doctor",
+        "triage",
+        "hangover",
+        "headache",
+        "dizzy",
+        "nausea",
+        "drunk",
+        "alcohol",
+        "sore throat",
+        "fever",
+        "car won't start",
+        "battery dead",
+        "alternator",
+        "flat tire",
+        "misfire",
+        "dtc",
+        "obd",
+        "calculus",
+        "integral",
+        "derivative",
+        "math proof",
+        "geometry",
+        "career advice",
+        "motivation",
+        "interview prep",
+        "marketing plan",
+        "sales pitch",
+    ]
+
+    has_code_syntax = any(
+        kw in ctx
+        for kw in [
+            "def ",
+            "class ",
+            "import ",
+            "function(",
+            "const ",
+            "var ",
+            "SELECT ",
+            "CREATE TABLE",
+            "from ",
+            "return ",
+            "try:",
+            "except:",
+            "console.log",
+        ]
+    )
+
+    if any(k in combined for k in life_indicators) and not has_code_syntax:
+        return False
+
+    code_indicators = [
+        "python",
+        "javascript",
+        "typescript",
+        "c++",
+        "golang",
+        "rust",
+        "java",
+        "sql",
+        "fastapi",
+        "react",
+        "vue",
+        "django",
+        "flask",
+        "docker",
+        "kubernetes",
+        "traceback",
+        "syntaxerror",
+        "typeerror",
+        "nullpointer",
+        "stack trace",
+        "api error",
+        "bug",
+        "segfault",
+        "oom",
+        "memory leak",
+        "exception",
+        "asyncio",
+        "sqlalchemy",
+        "greenlet",
+        "deadlock",
+        "pull request",
+        "repository",
+        "git",
+    ]
+
+    return any(k in combined for k in code_indicators) or has_code_syntax
+
+
+def strip_code_from_non_technical(content: str) -> str:
+    """Removes hallucinated code fences from non-technical outputs, converting them to plain text."""
+    if "```" not in content:
+        return content
+
+    pattern = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
+
+    def replacer(match):
+        lines = [line.strip() for line in match.group(1).splitlines() if line.strip()]
+        cleaned = []
+        for line in lines:
+            if line.startswith("#"):
+                cleaned.append(f"• {line.lstrip('#').strip()}")
+            elif line.startswith(("def ", "class ", "return ", "import ")):
+                continue
+            elif "append(" in line:
+                m = re.search(r'append\(["\'](.*?)["\']\)', line)
+                if m:
+                    cleaned.append(f"• {m.group(1)}")
+            elif line.endswith((":", "{", "}")):
+                continue
+            else:
+                cleaned.append(f"• {line.strip('"\'')}")
+        return "\n".join(cleaned) if cleaned else ""
+
+    return pattern.sub(replacer, content)
+
+
+def get_contextual_format_guidance(
+    domain: str,
+    title: str,
+    description: str = "",
+    context: str = "",
+    logs: str = "",
+) -> dict[str, Any]:
+    """Generates context-aware formatting directives matching the user's inquiry type:
+    - Coding: Technical explanation + clean code patch (if applicable).
+    - Math: Step-by-step mathematical derivation + conceptual explanation. No code.
+    - Casual / Emotional: Compassionate, thoughtful human answer + practical steps. Zero code.
+    - Health / Medical: Symptom triage + immediate actions + emergency red flags. Zero code.
+    - Mechanical / Auto: Component diagnostics + physical repair procedures & torque specs. Zero code.
+    - Business / Strategy: Strategic plan + 30-60-90 day execution milestones + risk audit. Zero code.
+    """
+    prob_type = detect_problem_type(title, description, context, logs)
+    d = (domain or "general").lower()
+    needs_code = is_programming_required(title, description, context, logs, domain)
+
+    if needs_code or any(
+        k in d
+        for k in [
+            "programming",
+            "python",
+            "javascript",
+            "typescript",
+            "software",
+            "code",
+        ]
+    ):
+        return {
+            "category": "coding",
+            "allow_code": True,
+            "directive": (
+                "CONTEXTUAL FORMAT (CODING QUESTION):\n"
+                "- Provide a direct technical explanation of the issue.\n"
+                "- Provide a production-grade code solution in a standalone fenced code block (```language ... ```) "
+                "with clean indentation. Never place code snippets inside markdown tables.\n"
+                "- Provide a brief verification checklist."
+            ),
+        }
+    elif prob_type == "mathematics" or any(
+        k in d for k in ["math", "calculus", "algebra", "logic"]
+    ):
+        return {
+            "category": "mathematics",
+            "allow_code": False,
+            "directive": (
+                "CONTEXTUAL FORMAT (MATHEMATICS PROBLEM):\n"
+                "- Provide the exact analytical solution with step-by-step mathematical derivation.\n"
+                "- Use mathematical formulas ($...$) and clear conceptual explanation.\n"
+                "- STRICT INVARIANT: Do NOT write Python scripts, programming code, or numerical algorithms."
+            ),
+        }
+    elif prob_type == "health_wellness" or any(
+        k in d for k in ["health", "medical", "wellness", "first aid", "triage"]
+    ):
+        return {
+            "category": "health_wellness",
+            "allow_code": False,
+            "directive": (
+                "CONTEXTUAL FORMAT (HEALTH & CLINICAL TRIAGE):\n"
+                "- Provide acute triage assessment and primary physical risk factors.\n"
+                "- Provide immediate step-by-step first-aid and hydration actions.\n"
+                "- Highlight critical red flags (immediate 911/ER) and contraindications (what NOT to do).\n"
+                "- STRICT INVARIANT: Zero programming code."
+            ),
+        }
+    elif prob_type == "automobile" or any(
+        k in d for k in ["auto", "car", "vehicle", "mechanical", "engine"]
+    ):
+        return {
+            "category": "mechanical",
+            "allow_code": False,
+            "directive": (
+                "CONTEXTUAL FORMAT (MECHANICAL & AUTOMOTIVE):\n"
+                "- Provide OBD-II / mechanical symptom analysis and component root cause.\n"
+                "- Provide step-by-step physical repair procedures, part specifications, and torque ratings.\n"
+                "- STRICT INVARIANT: Zero programming code."
+            ),
+        }
+    elif any(k in d for k in ["business", "strategy", "finance", "market"]):
+        return {
+            "category": "business",
+            "allow_code": False,
+            "directive": (
+                "CONTEXTUAL FORMAT (BUSINESS & STRATEGY):\n"
+                "- Provide strategic analysis, business model design, and competitive moat.\n"
+                "- Provide a 30-60-90 day execution roadmap and unit economics risk audit.\n"
+                "- STRICT INVARIANT: Zero programming code."
+            ),
+        }
+    else:
+        # Casual, emotional, relationship, breakup, life question, general inquiry
+        return {
+            "category": "casual_human",
+            "allow_code": False,
+            "directive": (
+                "CONTEXTUAL FORMAT (CASUAL / PERSONAL / HUMAN QUESTION):\n"
+                "- Provide a direct, compassionate, thoughtful, and conversational human answer.\n"
+                "- Include structured practical recommendations or a simple checklist where helpful.\n"
+                "- STRICT INVARIANT: NEVER generate programming code, Python functions, or pseudo-code. "
+                "Writing code for a personal or casual inquiry is strictly forbidden."
+            ),
+        }
 
 
 def solve_health_wellness_issue(title: str, description: str, obs: str) -> dict[str, str]:

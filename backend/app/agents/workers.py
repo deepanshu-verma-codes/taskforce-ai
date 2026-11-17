@@ -6,8 +6,10 @@ from langsmith import traceable
 
 from app.agents.llm_client import call_llm_or_fallback
 from app.agents.semantic_solver import (
+    get_contextual_format_guidance,
     solve_generic_with_intelligence,
     solve_health_wellness_issue,
+    strip_code_from_non_technical,
 )
 from app.agents.state import SwarmState
 
@@ -216,6 +218,8 @@ async def execute_worker_swarm(state: SwarmState) -> dict[str, Any]:
     rag_info = (state.get("rag_context", "") or "")[:800]
     rag_section = f"\nQdrant Vector Context:\n{rag_info}\n" if rag_info else ""
 
+    guidance = get_contextual_format_guidance(domain, title, desc, context, logs)
+
     async def run_single_worker(worker: dict[str, str]):
         role = worker["role"]
         name = worker["name"]
@@ -229,9 +233,9 @@ Context / Specs: {context or "None specified"}
 Logs / Symptoms / Observations: {logs or "None specified"}{rag_section}
 
 CONCISE OUTPUT DIRECTIVES:
-1. Provide a direct, actionable, production-ready deliverable strictly under 350-400 words. Incorporate Qdrant vector context facts when provided.
+1. Provide a direct, actionable deliverable strictly under 350-400 words. Incorporate Qdrant vector context facts when provided.
 2. Use at most 1 focused summary table or concise bulleted action points. Avoid rambling, duplicate, or multi-page tables.
-3. CRITICAL CODE FORMATTING DIRECTIVE: Never place code snippets or code blocks inside markdown tables or table cells. Code inside tables breaks formatting. Provide your explanation, and then provide code snippets in clean, standalone fenced code blocks (```language ... ```) with proper newlines and indentation so developers can read and copy it cleanly like in VS Code.
+3. {guidance["directive"]}
 4. Finish your entire deliverable cleanly. Never cut off mid-thought, mid-sentence, or mid-table."""
 
         def fallback():
@@ -240,6 +244,9 @@ CONCISE OUTPUT DIRECTIVES:
         content, p_tok, c_tok, cost = await call_llm_or_fallback(
             prompt, f"{name} ({role})", fallback
         )
+
+        if not guidance["allow_code"]:
+            content = strip_code_from_non_technical(content)
 
         report = {
             "agent_name": name,
@@ -283,6 +290,10 @@ async def execute_worker_correction(state: SwarmState) -> dict[str, Any]:
     title = state.get("problem_title", "")
     domain = state.get("language", "programming")
     context = state.get("code_snippet", "")
+    desc = state.get("problem_description", "")
+    logs = state.get("logs", "")
+
+    guidance = get_contextual_format_guidance(domain, title, desc, context, logs)
 
     prompt = f"""
 You are {target_name} ({domain.upper()}). The Tech Lead & Meta-Supervisor has inspected your output and issued the following CRITIQUE & DIRECTIVE:
@@ -295,7 +306,7 @@ Context:
 
 Refine and update your output to strictly satisfy the Tech Lead's instructions.
 Keep your output CONCISE (strictly under 350 words), highly actionable, and completely finished without cutting off mid-sentence or mid-table.
-CRITICAL CODE FORMATTING DIRECTIVE: Never place code snippets inside tables. Provide explanations followed by standalone fenced code blocks (```language ... ```) with proper indentation like in VS Code.
+{guidance["directive"]}
 """
 
     def fallback():
@@ -312,6 +323,9 @@ CRITICAL CODE FORMATTING DIRECTIVE: Never place code snippets inside tables. Pro
     content, p_tok, c_tok, cost = await call_llm_or_fallback(
         prompt, f"{target_name} Revision Mode", fallback
     )
+
+    if not guidance["allow_code"]:
+        content = strip_code_from_non_technical(content)
 
     event = {
         "timestamp": datetime.utcnow().isoformat(),

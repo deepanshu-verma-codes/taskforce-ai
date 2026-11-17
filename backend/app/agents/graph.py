@@ -5,6 +5,7 @@ from langgraph.graph import END, StateGraph
 from langsmith import traceable
 
 from app.agents.llm_client import sanitize_complete_output
+from app.agents.semantic_solver import is_programming_required, strip_code_from_non_technical
 from app.agents.state import SwarmState
 from app.agents.tech_lead import tech_lead_decompose, tech_lead_review
 from app.agents.workers import execute_worker_correction, execute_worker_swarm
@@ -206,6 +207,17 @@ async def finalize_solution(state: SwarmState) -> dict[str, Any]:
 
     clean_solution = sanitize_complete_output(solution_content)
     clean_verification = sanitize_complete_output(verification_report)
+
+    requires_code = is_programming_required(
+        title,
+        state.get("problem_description", "") or "",
+        state.get("code_snippet", "") or "",
+        state.get("logs", "") or "",
+        domain,
+    )
+    if not requires_code:
+        clean_solution = strip_code_from_non_technical(clean_solution)
+        clean_verification = strip_code_from_non_technical(clean_verification)
 
     return {
         "final_patch": clean_solution,

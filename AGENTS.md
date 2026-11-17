@@ -133,6 +133,11 @@ Every agent generating code in this repository MUST abide by these rules:
 3. **Icons:** Use `lucide-react` icons exclusively.
 4. **Compilation:** Code must pass `npm run build` (`tsc -b && vite build`) with zero type errors.
 
+### Contextual Intelligence & Domain Appropriateness (Non-Negotiable):
+1. **Zero Code for Human/Life Scenarios:** If an inquiry concerns emotional health, relationships, breakups, grief, medical triage, or personal life advice, Marcus Vance and ALL worker agents are **STRICTLY FORBIDDEN** from outputting programming code, Python functions, scripts, or pseudo-code (e.g. `def secure_breakup_environment(...)`). Providing code for human emotional scenarios is an unacceptable failure of contextual empathy.
+2. **Self-Healing Code Rejection:** If any worker agent outputs code for a non-technical inquiry, Marcus Vance (Tech Lead) MUST issue an immediate `CRITIQUE` rejecting the deliverable and instructing the worker to purge all code syntax and provide compassionate, structured real-world action protocols.
+3. **Code Scope:** Executable code snippets (```language ... ```) are ONLY allowed when the inquiry explicitly involves software development, programming languages, system scripts, or databases.
+
 ---
 
 ## 5. Definition of Done (DoD) Checklist
