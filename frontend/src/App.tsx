@@ -20,6 +20,8 @@ import { CreateProblemModal } from './components/CreateProblemModal';
 import { DeleteConfirmationModal } from './components/DeleteConfirmationModal';
 import { SignInPage } from './components/SignInPage';
 import { SignUpPage } from './components/SignUpPage';
+import { TicTacToeGame } from './components/TicTacToeGame';
+import { VipModal } from './components/VipModal';
 import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -55,6 +57,7 @@ export const App: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isSolving, setIsSolving] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isVipModalOpen, setIsVipModalOpen] = useState(false);
   const [showMetrics, setShowMetrics] = useState(false);
   const [problemToDelete, setProblemToDelete] = useState<Problem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -88,6 +91,17 @@ export const App: React.FC = () => {
       setIsRefreshing(false);
     }
   }, []);
+
+  // Reload current user & data after VIP upgrade or revocation
+  const handleVipUpdated = useCallback(async () => {
+    try {
+      const me = await fetchCurrentUser();
+      setCurrentUser(me);
+    } catch {
+      // Retain
+    }
+    await loadData();
+  }, [loadData]);
 
   // Check auth session on initial load and route accordingly
   useEffect(() => {
@@ -180,8 +194,23 @@ export const App: React.FC = () => {
       ]);
       setSelectedProblem(updatedProb);
       setLogs(updatedLogs);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error solving problem with swarm:', err);
+      // Revert status on failure (e.g. Quota Exceeded 429)
+      const freshProb = await fetchProblemById(problemId).catch(() => null);
+      if (freshProb) {
+        setSelectedProblem(freshProb);
+        setProblems(prev => prev.map(p => (p.id === problemId ? freshProb : p)));
+      } else {
+        setProblems(prev =>
+          prev.map(p => (p.id === problemId ? { ...p, status: 'PENDING' } : p))
+        );
+        if (selectedProblem?.id === problemId) {
+          setSelectedProblem(prev => (prev ? { ...prev, status: 'PENDING' } : null));
+        }
+      }
+      const message = err instanceof Error ? err.message : 'Failed to solve problem with swarm';
+      alert(message);
     } finally {
       setIsSolving(false);
     }
@@ -340,13 +369,50 @@ export const App: React.FC = () => {
     return <SignInPage onNavigate={navigate} onSuccess={handleAuthSuccess} />;
   }
 
-  // 4. Fallback for unauthenticated access on protected routes: Redirect to /signin
+  // 4. Route: /game (Accessible to both authenticated operators and guests)
+  if (pathname === '/game') {
+    return (
+      <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0e11] text-[#181a20] dark:text-[#eaecef] flex flex-col font-sans transition-colors">
+        <Header
+          onNewProblem={() => {
+            navigate('/');
+            setIsModalOpen(true);
+          }}
+          onRefresh={() => loadData()}
+          isRefreshing={isRefreshing}
+          showMetrics={false}
+          onToggleMetrics={() => {}}
+          currentUser={currentUser}
+          onOpenAuth={() => navigate('/signin')}
+          onLogout={handleLogout}
+          currentPath={pathname}
+          onNavigate={navigate}
+          onOpenVipModal={() => setIsVipModalOpen(true)}
+        />
+        <main className="flex-1 flex flex-col">
+          <TicTacToeGame
+            onBackToFloor={() => navigate('/')}
+            currentUser={currentUser}
+            onOpenVipModal={() => setIsVipModalOpen(true)}
+          />
+        </main>
+        <VipModal
+          isOpen={isVipModalOpen}
+          onClose={() => setIsVipModalOpen(false)}
+          currentUser={currentUser}
+          onVipUpdated={handleVipUpdated}
+        />
+      </div>
+    );
+  }
+
+  // 5. Fallback for unauthenticated access on protected routes: Redirect to /signin
   if (!currentUser) {
     navigate('/signin');
     return <SignInPage onNavigate={navigate} onSuccess={handleAuthSuccess} />;
   }
 
-  // 5. Protected Dashboard Route (/)
+  // 6. Protected Dashboard Route (/)
   return (
     <div className="min-h-screen bg-[#fafafa] dark:bg-[#0b0e11] text-[#181a20] dark:text-[#eaecef] flex flex-col font-sans transition-colors">
       <Header
@@ -358,6 +424,9 @@ export const App: React.FC = () => {
         currentUser={currentUser}
         onOpenAuth={() => navigate('/signin')}
         onLogout={handleLogout}
+        currentPath={pathname}
+        onNavigate={navigate}
+        onOpenVipModal={() => setIsVipModalOpen(true)}
       />
 
       <main className="flex-1 max-w-[1440px] w-full mx-auto p-4 md:p-6 flex flex-col">
@@ -403,6 +472,8 @@ export const App: React.FC = () => {
                 onSolve={handleSolve}
                 isSolving={isSolving}
                 onRequestDelete={() => selectedProblem && setProblemToDelete(selectedProblem)}
+                currentUser={currentUser}
+                onOpenVipModal={() => setIsVipModalOpen(true)}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-8 bg-white dark:bg-[#1e2329] border border-[#eaecef] dark:border-[#2b3139] rounded-xl text-center shadow-xs dark:shadow-none transition-colors">
@@ -435,6 +506,14 @@ export const App: React.FC = () => {
         }}
         onConfirm={handleConfirmDelete}
         isDeleting={isDeleting}
+      />
+
+      {/* VIP Unlimited Access & Owner Admin Console Modal */}
+      <VipModal
+        isOpen={isVipModalOpen}
+        onClose={() => setIsVipModalOpen(false)}
+        currentUser={currentUser}
+        onVipUpdated={handleVipUpdated}
       />
     </div>
   );

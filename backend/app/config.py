@@ -59,14 +59,29 @@ class Settings(BaseSettings):
     RATE_LIMIT_SOLVE: int = 10
     RATE_LIMIT_DELETE: int = 15
 
+    # Daily Usage Quotas (5 games + 5 problems/day, deepanshu_verma is exempt)
+    DAILY_GAME_LIMIT: int = 5
+    DAILY_PROBLEM_LIMIT: int = 5
+    QUOTA_EXEMPT_USERNAMES: str = "deepanshu_verma,deepanshu-verma"
+    DEFAULT_VIP_CODE: str = "VIP2026"
+
+    @property
+    def exempt_usernames_list(self) -> list[str]:
+        return [u.strip().lower() for u in self.QUOTA_EXEMPT_USERNAMES.split(",") if u.strip()]
+
     # Qdrant Vector Database & RAG Configuration
     QDRANT_PATH: str = "./qdrant_storage"
     QDRANT_URL: str | None = None
+    QDRANT_CLUSTER_URL: str | None = None
     QDRANT_API_KEY: str | None = None
     QDRANT_COLLECTION: str = "taskforce_rag"
     RAG_TOP_K: int = 4
     RAG_CHUNK_SIZE: int = 600
     RAG_CHUNK_OVERLAP: int = 100
+
+    @property
+    def effective_qdrant_url(self) -> str | None:
+        return self.QDRANT_URL or self.QDRANT_CLUSTER_URL
 
     # Default Agent Settings
     DEFAULT_MODEL: str = "openai/gpt-oss-20b"

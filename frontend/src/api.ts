@@ -1,4 +1,16 @@
-import { Problem, DashboardStats, AgentLog, DocumentUploadResponse, User, UsernameCheckResult } from './types';
+import {
+  Problem,
+  DashboardStats,
+  AgentLog,
+  DocumentUploadResponse,
+  User,
+  UsernameCheckResult,
+  GameAgentProfile,
+  GameMoveRequest,
+  GameMoveResponse,
+  DailyQuotaStatus,
+  VipStatusResponse,
+} from './types';
 
 const DIRECT_API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api';
 
@@ -251,6 +263,94 @@ export async function resetAllProblems(): Promise<{ message: string; count: numb
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: 'Failed to reset problems' }));
     throw new Error(err.detail || 'Failed to reset problems');
+  }
+  return res.json();
+}
+
+export async function fetchGameAgents(): Promise<GameAgentProfile[]> {
+  const res = await smartFetch('/game/agents');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch game agents' }));
+    throw new Error(err.detail || 'Failed to fetch game agents');
+  }
+  return res.json();
+}
+
+export async function playGameMove(data: GameMoveRequest): Promise<GameMoveResponse> {
+  const res = await smartFetch('/game/move', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to process game move' }));
+    throw new Error(err.detail || 'Failed to process game move');
+  }
+  return res.json();
+}
+
+export async function fetchGameQuota(): Promise<DailyQuotaStatus> {
+  const res = await smartFetch('/game/quota');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch game quota' }));
+    throw new Error(err.detail || 'Failed to fetch game quota');
+  }
+  return res.json();
+}
+
+export async function fetchProblemQuota(): Promise<DailyQuotaStatus> {
+  const res = await smartFetch('/problems/quota');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch problem quota' }));
+    throw new Error(err.detail || 'Failed to fetch problem quota');
+  }
+  return res.json();
+}
+
+export async function fetchVipStatus(): Promise<VipStatusResponse> {
+  const res = await smartFetch('/vip/status');
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to fetch VIP status' }));
+    throw new Error(err.detail || 'Failed to fetch VIP status');
+  }
+  return res.json();
+}
+
+export async function redeemVipCode(code: string): Promise<{ message: string; is_vip: boolean }> {
+  const res = await smartFetch('/vip/redeem', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to redeem VIP code' }));
+    throw new Error(err.detail || 'Failed to redeem VIP code');
+  }
+  return res.json();
+}
+
+export async function updateVipCode(newCode: string): Promise<{ message: string; active_code: string }> {
+  const res = await smartFetch('/vip/code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ new_code: newCode }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to update VIP code' }));
+    throw new Error(err.detail || 'Failed to update VIP code');
+  }
+  return res.json();
+}
+
+export async function revokeVipUser(username: string): Promise<{ message: string; username: string }> {
+  const res = await smartFetch('/vip/revoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Failed to revoke VIP status' }));
+    throw new Error(err.detail || 'Failed to revoke VIP status');
   }
   return res.json();
 }

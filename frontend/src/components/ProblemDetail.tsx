@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Problem, AgentLog } from '../types';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Problem, AgentLog, DailyQuotaStatus, User } from '../types';
+import { fetchProblemQuota } from '../api';
 import {
   Play,
   CheckCircle2,
@@ -26,6 +27,8 @@ interface ProblemDetailProps {
   onSolve: (id: string) => void;
   isSolving: boolean;
   onRequestDelete?: () => void;
+  currentUser?: User | null;
+  onOpenVipModal?: () => void;
 }
 
 // Universal, domain-agnostic metric name formatter for any problem type
@@ -44,11 +47,29 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
   onSolve,
   isSolving,
   onRequestDelete,
+  currentUser,
+  onOpenVipModal,
 }) => {
   // Step 1: Default to 'problem' (Problem & Context) tab
   const [activeTab, setActiveTab] = useState<'problem' | 'swarm' | 'solution'>('problem');
   const [showLogsDrawer, setShowLogsDrawer] = useState(false);
   const [expandedWorker, setExpandedWorker] = useState<string | null>(null);
+
+  // Daily Problem Solve Quota (5 solves/day limit, deepanshu_verma exempt)
+  const [quota, setQuota] = useState<DailyQuotaStatus | null>(null);
+
+  const loadQuota = useCallback(async () => {
+    try {
+      const q = await fetchProblemQuota();
+      setQuota(q);
+    } catch {
+      // Retain
+    }
+  }, []);
+
+  useEffect(() => {
+    loadQuota();
+  }, [loadQuota, problem.status]);
 
   // Automatically switch to 'problem' (Problem & Context) when any problem is selected from left panel
   useEffect(() => {
@@ -124,30 +145,74 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
           )}
 
           {!isResolved ? (
-            <button
-              onClick={() => {
-                onSolve(problem.id);
-                setActiveTab('swarm');
-              }}
-              disabled={isInProgress}
-              className={`flex items-center gap-2 px-5 h-10 rounded-md font-semibold text-xs tracking-tight transition-colors cursor-pointer shadow-sm ${
-                isInProgress
-                  ? 'bg-[#eaecef] dark:bg-[#3a3a1f] text-[#707a8a] cursor-not-allowed border border-[#eaecef] dark:border-[#2b3139]'
-                  : 'bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] active:bg-[#f0b90b]'
-              }`}
-            >
-              {isInProgress ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-[#b8860b] dark:text-[#FCD535]" />
-                  <span>Swarm Resolving...</span>
-                </>
-              ) : (
-                <>
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                  <span>Deploy Swarm ({problem.agent_count} Agents)</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Daily Problem Solve Quota Pill */}
+              {quota?.is_exempt || (currentUser && (currentUser.username.toLowerCase() === 'deepanshu_verma' || currentUser.username.toLowerCase() === 'deepanshu-verma' || currentUser.is_vip === 1)) ? (
+                <button
+                  type="button"
+                  onClick={onOpenVipModal}
+                  className="hidden md:flex items-center gap-1.5 px-3 h-10 rounded-md bg-[#FCD535]/15 hover:bg-[#FCD535]/25 text-[#b8860b] dark:text-[#FCD535] border border-[#b8860b] dark:border-[#FCD535]/40 text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                  title={
+                    currentUser && (currentUser.username.toLowerCase() === 'deepanshu_verma' || currentUser.username.toLowerCase() === 'deepanshu-verma')
+                      ? "Exclusive Owner Account: Zero daily problem limits or token constraints (Click to open VIP Admin Console)"
+                      : "VIP Unlimited Pass Active (Click to view details)"
+                  }
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-[#b8860b] dark:text-[#FCD535]" />
+                  <span>VIP Unlimited</span>
+                </button>
+              ) : quota ? (
+                <button
+                  type="button"
+                  onClick={onOpenVipModal}
+                  className={`hidden md:flex items-center gap-1.5 px-2.5 h-10 rounded-md border text-xs font-semibold cursor-pointer transition-colors ${
+                    quota.remaining_today <= 0
+                      ? 'bg-[#ef4444]/15 border-[#ef4444]/40 text-[#ef4444]'
+                      : 'bg-[#f5f5f5] dark:bg-[#1e2329] hover:bg-[#eaecef] border-[#eaecef] dark:border-[#2b3139] text-[#707a8a]'
+                  }`}
+                  title="Daily limit resets at midnight UTC. Click to enter VIP access code for unlimited solves."
+                >
+                  <Shield className="h-3.5 w-3.5 text-[#00f0ff]" />
+                  <span>
+                    Solves: {quota.remaining_today} / {quota.daily_limit} left
+                  </span>
+                </button>
+              ) : null}
+
+              <button
+                onClick={() => {
+                  onSolve(problem.id);
+                  setActiveTab('swarm');
+                }}
+                disabled={
+                  isInProgress ||
+                  (quota !== null && !quota.is_exempt && quota.remaining_today <= 0)
+                }
+                className={`flex items-center gap-2 px-5 h-10 rounded-md font-semibold text-xs tracking-tight transition-colors cursor-pointer shadow-sm ${
+                  isInProgress ||
+                  (quota !== null && !quota.is_exempt && quota.remaining_today <= 0)
+                    ? 'bg-[#eaecef] dark:bg-[#3a3a1f] text-[#707a8a] cursor-not-allowed border border-[#eaecef] dark:border-[#2b3139]'
+                    : 'bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] active:bg-[#f0b90b]'
+                }`}
+                title={
+                  quota !== null && !quota.is_exempt && quota.remaining_today <= 0
+                    ? 'Daily problem resolution limit reached (5/5). Quota resets at midnight UTC.'
+                    : undefined
+                }
+              >
+                {isInProgress ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-[#b8860b] dark:text-[#FCD535]" />
+                    <span>Swarm Resolving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5 fill-current" />
+                    <span>Deploy Swarm ({problem.agent_count} Agents)</span>
+                  </>
+                )}
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2 text-xs font-mono font-semibold text-[#0ecb81] bg-[#0ecb81]/10 dark:bg-[#2b3139] border border-[#0ecb81]/40 px-3.5 h-10 rounded-md">
               <CheckCircle2 className="h-4 w-4" />
@@ -156,6 +221,19 @@ export const ProblemDetail: React.FC<ProblemDetailProps> = ({
           )}
         </div>
       </div>
+
+      {/* Daily Problem Solve Quota Exhausted Alert Banner */}
+      {quota && !quota.is_exempt && quota.remaining_today <= 0 && !isResolved && (
+        <div className="mx-4 mt-3 p-3 rounded-lg bg-[#fff5f5] dark:bg-[#2b1f24] border border-[#fed7d7] dark:border-[#f6465d]/40 flex items-center justify-between text-xs text-[#f6465d]">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            <span>
+              Daily problem resolution limit reached (5/5 problems solved). Quota resets at midnight UTC to protect agent compute tokens.
+            </span>
+          </div>
+          <span className="font-mono text-[10px] text-[#707a8a] shrink-0 ml-2">0 solves remaining</span>
+        </div>
+      )}
 
       {/* 2. Binance 3-Tab Bar */}
       <div className="flex items-center border-b border-[#eaecef] dark:border-[#2b3139] bg-white dark:bg-[#1e2329] px-4 text-xs font-medium">

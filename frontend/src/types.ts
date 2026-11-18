@@ -36,6 +36,8 @@ export interface User {
   username: string;
   name: string;
   created_at: string;
+  is_vip?: number;
+  vip_granted_at?: string;
 }
 
 export interface UsernameCheckResult {
@@ -93,4 +95,68 @@ export interface DocumentUploadResponse {
   word_count: number;
   pages_count: number;
   preview_chunks: string[];
+}
+
+export interface GameAgentProfile {
+  name: string;
+  specialization: string;
+  tagline: string;
+  difficulty_tendency: string;
+  avatar_color: string;
+  offense: number;
+  defense: number;
+  foresight: number;
+  opening_quote: string;
+}
+
+export interface GameMoveRequest {
+  board: string[];
+  agent_name: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  player_symbol: 'X' | 'O';
+  last_move?: number | null;
+  match_id?: string | null;
+}
+
+export interface GameMoveResponse {
+  agent_move: number;
+  agent_name: string;
+  commentary: string;
+  tactical_insight: string;
+  status: 'in_progress' | 'agent_won' | 'player_won' | 'draw';
+  winning_line?: number[] | null;
+}
+
+export interface DailyQuotaStatus {
+  action: 'game' | 'problem';
+  used_today: number;
+  daily_limit: number;
+  remaining_today: number;
+  is_exempt: boolean;
+  username?: string | null;
+  resets_at: string;
+  message: string;
+}
+
+export interface GameScoreboard {
+  playerWins: number;
+  agentWins: number;
+  draws: number;
+  totalGames: number;
+  currentStreak: number;
+  bestStreak: number;
+}
+
+export interface VipUserItem {
+  id: string;
+  username: string;
+  name: string;
+  vip_granted_at?: string;
+}
+
+export interface VipStatusResponse {
+  is_vip: boolean;
+  is_owner: boolean;
+  active_code?: string;
+  vip_users?: VipUserItem[];
 }

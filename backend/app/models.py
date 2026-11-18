@@ -15,6 +15,8 @@ class User(Base):
     name = Column(String(100), nullable=False)
     hashed_password = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    is_vip = Column(Integer, default=0)
+    vip_granted_at = Column(DateTime, nullable=True)
 
     # Multi-tenant isolation: a user owns their problems
     problems = relationship(
@@ -122,3 +124,11 @@ class EvaluationMetric(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     problem = relationship("Problem", back_populates="evaluations")
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

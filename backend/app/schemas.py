@@ -167,6 +167,8 @@ class UserResponse(BaseModel):
     username: str
     name: str
     created_at: datetime
+    is_vip: int = 0
+    vip_granted_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -212,3 +214,114 @@ class DashboardStatsResponse(BaseModel):
     avg_resolution_time_ms: float
     active_worker_agents: int
     tech_lead_interventions_count: int
+
+
+# ============================================================================
+# Game & Tic-Tac-Toe Autonomous Arena Schemas
+# ============================================================================
+
+
+class GameAgentProfile(BaseModel):
+    name: str
+    specialization: str
+    tagline: str
+    difficulty_tendency: str
+    avatar_color: str
+    offense: int = Field(..., ge=1, le=100)
+    defense: int = Field(..., ge=1, le=100)
+    foresight: int = Field(..., ge=1, le=100)
+    opening_quote: str
+
+
+class GameMoveRequest(BaseModel):
+    board: list[str] = Field(
+        ...,
+        min_length=9,
+        max_length=9,
+        description="9-cell board state containing '', 'X', or 'O'",
+    )
+    agent_name: str = Field(default="Marcus Vance", description="Name of the opponent agent")
+    difficulty: str = Field(
+        default="medium", description="Difficulty level: 'easy', 'medium', or 'hard'"
+    )
+    player_symbol: str = Field(default="X", description="Player symbol: 'X' or 'O'")
+    last_move: int | None = Field(
+        default=None, ge=0, le=8, description="Last move made by player (0-8)"
+    )
+    match_id: str | None = Field(
+        default=None, description="Unique client session ID for the current match"
+    )
+
+    @field_validator("board")
+    @classmethod
+    def validate_board(cls, v: list[str]) -> list[str]:
+        if len(v) != 9:
+            raise ValueError("Board must contain exactly 9 cells")
+        for idx, cell in enumerate(v):
+            if cell not in ("", "X", "O"):
+                raise ValueError(f"Cell at index {idx} must be '', 'X', or 'O'")
+        return v
+
+    @field_validator("player_symbol")
+    @classmethod
+    def validate_player_symbol(cls, v: str) -> str:
+        v_upper = v.upper()
+        if v_upper not in ("X", "O"):
+            raise ValueError("player_symbol must be 'X' or 'O'")
+        return v_upper
+
+    @field_validator("difficulty")
+    @classmethod
+    def validate_difficulty(cls, v: str) -> str:
+        v_lower = v.lower()
+        if v_lower not in ("easy", "medium", "hard"):
+            raise ValueError("difficulty must be 'easy', 'medium', or 'hard'")
+        return v_lower
+
+
+class GameMoveResponse(BaseModel):
+    agent_move: int = Field(..., ge=0, le=8)
+    agent_name: str
+    commentary: str
+    tactical_insight: str
+    status: str = Field(..., description="'in_progress', 'agent_won', 'player_won', 'draw'")
+    winning_line: list[int] | None = None
+
+
+class QuotaStatusResponse(BaseModel):
+    action: str = Field(..., description="'game' or 'problem'")
+    used_today: int
+    daily_limit: int
+    remaining_today: int
+    is_exempt: bool
+    username: str | None = None
+    resets_at: str
+    message: str
+
+
+class VipRedeemRequest(BaseModel):
+    code: str = Field(..., min_length=2, max_length=64, description="VIP access code to redeem")
+
+
+class VipUpdateCodeRequest(BaseModel):
+    new_code: str = Field(..., min_length=3, max_length=64, description="New VIP access code")
+
+
+class VipRevokeRequest(BaseModel):
+    username: str = Field(..., description="Target username to revoke VIP privileges from")
+
+
+class VipUserItem(BaseModel):
+    id: str
+    username: str
+    name: str
+    vip_granted_at: datetime | None = None
+
+
+class VipStatusResponse(BaseModel):
+    is_vip: bool
+    is_owner: bool
+    active_code: str | None = None
+    vip_users: list[VipUserItem] | None = None
+
+

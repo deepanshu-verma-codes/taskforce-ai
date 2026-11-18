@@ -29,17 +29,32 @@ from app.schemas import (
     AgentLogResponse,
     DashboardStatsResponse,
     DocumentUploadResponse,
+    GameAgentProfile,
+    GameMoveRequest,
+    GameMoveResponse,
     ProblemCreate,
     ProblemRagChunksResponse,
     ProblemResponse,
+    QuotaStatusResponse,
     RagChunkItem,
     UserLoginRequest,
     UsernameCheckResponse,
     UserRegisterRequest,
     UserResponse,
+    VipRedeemRequest,
+    VipRevokeRequest,
+    VipStatusResponse,
+    VipUpdateCodeRequest,
     sanitize_filename,
 )
-from app.services import auth_service, problem_service, rag_service
+from app.services import (
+    auth_service,
+    game_service,
+    problem_service,
+    quota_service,
+    rag_service,
+    vip_service,
+)
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 
@@ -274,6 +289,77 @@ async def get_current_user_profile(current_user: CurrentUser):
 
 
 # ============================================================================
+# VIP Unlimited Pass & Access Code Endpoints
+# ============================================================================
+
+
+@app.get("/api/vip/status", response_model=VipStatusResponse)
+async def get_vip_status(db: DbSession, current_user: CurrentUser):
+    """Returns VIP status for current user, including administrative oversight for deepanshu_verma."""
+    return await vip_service.get_vip_status(db, current_user)
+
+
+@app.post("/api/vip/redeem")
+async def redeem_vip(req: VipRedeemRequest, db: DbSession, current_user: CurrentUser):
+    """Redeems a valid VIP access code to unlock VIP Unlimited status."""
+    return await vip_service.redeem_vip_code(db, req.code, current_user)
+
+
+@app.post("/api/vip/code")
+async def update_vip_code(req: VipUpdateCodeRequest, db: DbSession, current_user: CurrentUser):
+    """Updates the active VIP access code. Strictly restricted to owner deepanshu_verma."""
+    updated = await vip_service.update_vip_code(db, req.new_code, current_user)
+    return {"message": "VIP access code updated successfully", "active_code": updated}
+
+
+@app.post("/api/vip/revoke")
+async def revoke_vip(req: VipRevokeRequest, db: DbSession, current_user: CurrentUser):
+    """Revokes VIP Unlimited status from a user. Strictly restricted to owner deepanshu_verma."""
+    return await vip_service.revoke_vip(db, req.username, current_user)
+
+
+# ============================================================================
+# Autonomous Game Arena Endpoints (Tic-Tac-Toe vs Swarm Agents)
+# ============================================================================
+
+
+@app.get("/api/game/agents", response_model=list[GameAgentProfile])
+async def list_game_agents():
+    """Returns the roster of available AI agent opponents with their playstyles and stats."""
+    return game_service.get_all_agents()
+
+
+@app.get("/api/game/quota", response_model=QuotaStatusResponse)
+async def get_game_quota(request: Request, current_user: OptionalUser):
+    """Returns current daily game quota for the user or client IP. deepanshu_verma is exempt."""
+    identifier = quota_service.get_client_identifier(request, current_user)
+    return quota_service.get_quota_status("game", identifier, user=current_user)
+
+
+@app.post("/api/game/move", response_model=GameMoveResponse)
+async def play_game_move(req: GameMoveRequest, request: Request, current_user: OptionalUser):
+    """Calculates the opponent agent's next move in Tic-Tac-Toe and generates live persona commentary."""
+    identifier = quota_service.get_client_identifier(request, current_user)
+    is_new = (req.board.count("X") + req.board.count("O")) <= 1
+    quota_service.check_and_consume_game_quota(
+        identifier=identifier,
+        user=current_user,
+        match_id=req.match_id,
+        is_new_game=is_new,
+    )
+    board_copy = list(req.board)
+    return await game_service.process_game_turn(
+        board=board_copy,
+        agent_name=req.agent_name,
+        difficulty=req.difficulty,
+        player_symbol=req.player_symbol,
+        last_move=req.last_move,
+    )
+
+
+
+
+# ============================================================================
 # Isolated Problem Floor & Observability Endpoints
 # ============================================================================
 
@@ -366,6 +452,13 @@ async def reset_all_problems(db: DbSession, current_user: CurrentUser):
     return {"message": f"Successfully reset {count} problems to PENDING", "count": count}
 
 
+@app.get("/api/problems/quota", response_model=QuotaStatusResponse)
+async def get_problem_quota(request: Request, current_user: OptionalUser):
+    """Returns current daily problem solve quota for the user or client IP. deepanshu_verma is exempt."""
+    identifier = quota_service.get_client_identifier(request, current_user)
+    return quota_service.get_quota_status("problem", identifier, user=current_user)
+
+
 @app.get("/api/problems/{problem_id}", response_model=ProblemResponse)
 async def get_problem(problem_id: str, db: DbSession, current_user: CurrentUser):
     problem = await problem_service.get_problem_by_id(db, problem_id, user_id=current_user.id)
@@ -380,7 +473,11 @@ async def get_logs(problem_id: str, db: DbSession, current_user: CurrentUser):
 
 
 @app.post("/api/problems/{problem_id}/solve", response_model=ProblemResponse)
-async def solve_problem(problem_id: str, db: DbSession, current_user: CurrentUser):
+async def solve_problem(
+    problem_id: str, request: Request, db: DbSession, current_user: CurrentUser
+):
+    identifier = quota_service.get_client_identifier(request, current_user)
+    quota_service.check_and_consume_problem_quota(identifier=identifier, user=current_user)
     problem = await problem_service.solve_problem_with_swarm(
         db, problem_id, user_id=current_user.id
     )

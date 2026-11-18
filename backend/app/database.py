@@ -33,6 +33,8 @@ async def init_db():
             "ALTER TABLE problems ADD COLUMN has_rag INTEGER DEFAULT 0",
             "ALTER TABLE problems ADD COLUMN rag_chunks_count INTEGER DEFAULT 0",
             "ALTER TABLE problems ADD COLUMN user_id VARCHAR(36) REFERENCES users(id)",
+            "ALTER TABLE users ADD COLUMN is_vip INTEGER DEFAULT 0",
+            "ALTER TABLE users ADD COLUMN vip_granted_at DATETIME",
         ]:
             try:
                 await conn.exec_driver_sql(migration)
