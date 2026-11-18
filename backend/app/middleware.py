@@ -71,7 +71,11 @@ class RateLimiterMiddleware(BaseHTTPMiddleware):
         if m == "POST" and "/solve" in path:
             return (settings.RATE_LIMIT_SOLVE, 60, "solve")
 
-        # 2. Authentication: POST /api/auth/...
+        # 2. Autonomous Game Arena: /api/game/...
+        if path.startswith("/api/game"):
+            return (120, 60, "game")
+
+        # 3. Authentication: POST /api/auth/...
         if m == "POST" and path.startswith("/api/auth"):
             return (settings.RATE_LIMIT_AUTH, 60, "auth")
 
