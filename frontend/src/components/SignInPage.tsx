@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, LogIn, AlertCircle, Loader2, Sparkles, UserPlus, ShieldCheck, Sun, Moon } from 'lucide-react';
+import { Lock, LogIn, AlertCircle, Loader2, Sparkles, UserPlus, ShieldCheck, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { loginUser } from '../api';
 import { User } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -13,6 +13,7 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onNavigate, onSuccess })
   const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -169,21 +170,35 @@ export const SignInPage: React.FC<SignInPageProps> = ({ onNavigate, onSuccess })
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 pl-9 rounded-lg border border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden focus:border-[#FCD535] transition-colors"
+                    className="w-full px-3.5 py-2.5 pl-9 pr-10 rounded-lg border border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden focus:border-[#FCD535] transition-colors"
                   />
                   <Lock className="h-3.5 w-3.5 text-[#707a8a] absolute left-3.5 top-3" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-3 top-2.5 text-[#707a8a] hover:text-[#181a20] dark:hover:text-white transition-colors cursor-pointer p-0.5 focus:outline-hidden"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              {/* Security Invariant Info */}
+              {/* Session Security Assurance */}
               <div className="flex items-center gap-1.5 text-[11px] text-[#707a8a]">
                 <ShieldCheck className="h-3.5 w-3.5 text-[#0ecb81] shrink-0" />
-                <span>HttpOnly Cookies • 15m Access Token • 7d Refresh</span>
+                <span>Your workspace session is encrypted and securely protected</span>
               </div>
 
               {/* Submit Button */}

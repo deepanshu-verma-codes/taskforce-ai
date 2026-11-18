@@ -7,10 +7,11 @@ import {
   CheckCircle2,
   Sparkles,
   Loader2,
-  ShieldCheck,
   LogIn,
   Sun,
   Moon,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { registerUser, checkUsernameAvailability, AuthError } from '../api';
 import { User } from '../types';
@@ -28,6 +29,8 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [usernameFeedback, setUsernameFeedback] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
@@ -105,6 +108,10 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
     }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
+      return;
+    }
+    if (!agreedToTerms) {
+      setError('Please agree to the Terms of Service and Privacy Policy to proceed.');
       return;
     }
 
@@ -299,27 +306,56 @@ export const SignUpPage: React.FC<SignUpPageProps> = ({ onNavigate, onSuccess })
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full px-3.5 py-2.5 pl-9 rounded-lg border border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden focus:border-[#FCD535] transition-colors"
+                    className="w-full px-3.5 py-2.5 pl-9 pr-10 rounded-lg border border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-xs text-[#181a20] dark:text-white placeholder-[#707a8a] focus:outline-hidden focus:border-[#FCD535] transition-colors"
                   />
                   <Lock className="h-3.5 w-3.5 text-[#707a8a] absolute left-3.5 top-3" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(prev => !prev)}
+                    className="absolute right-3 top-2.5 text-[#707a8a] hover:text-[#181a20] dark:hover:text-white transition-colors cursor-pointer p-0.5 focus:outline-hidden"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
                 </div>
               </div>
 
-              {/* Security Invariant Info */}
-              <div className="flex items-center gap-1.5 text-[11px] text-[#707a8a]">
-                <ShieldCheck className="h-3.5 w-3.5 text-[#0ecb81] shrink-0" />
-                <span>Isolated Workspace • HttpOnly Session • Zero Cross-Tenant Visibility</span>
-              </div>
+              {/* Terms of Service & Privacy Policy Consent Checkbox */}
+              <label className="flex items-start gap-2.5 pt-1 select-none cursor-pointer group">
+                <input
+                  type="checkbox"
+                  required
+                  checked={agreedToTerms}
+                  onChange={e => setAgreedToTerms(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded border-[#eaecef] dark:border-[#2b3139] bg-[#f8f9fa] dark:bg-[#12161c] text-[#FCD535] focus:ring-[#FCD535]/50 focus:ring-offset-0 cursor-pointer accent-[#FCD535]"
+                />
+                <span className="text-xs text-[#707a8a] leading-relaxed">
+                  I agree to the{' '}
+                  <span className="text-[#181a20] dark:text-[#eaecef] font-medium group-hover:underline">
+                    Terms of Service
+                  </span>{' '}
+                  and acknowledge the{' '}
+                  <span className="text-[#181a20] dark:text-[#eaecef] font-medium group-hover:underline">
+                    Privacy Policy
+                  </span>.
+                </span>
+              </label>
 
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isLoading || usernameStatus === 'checking'}
+                disabled={isLoading || usernameStatus === 'checking' || !agreedToTerms}
                 className="w-full py-2.5 rounded-lg bg-[#FCD535] hover:bg-[#f0b90b] text-[#181a20] font-bold text-xs tracking-tight transition-colors cursor-pointer flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
               >
                 {isLoading ? (
