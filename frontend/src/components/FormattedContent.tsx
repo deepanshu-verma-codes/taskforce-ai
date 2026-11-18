@@ -18,7 +18,7 @@ interface CodeData {
 }
 
 interface Block {
-  type: 'heading' | 'table' | 'code' | 'blockquote' | 'list' | 'hr' | 'paragraph';
+  type: 'heading' | 'table' | 'code' | 'blockquote' | 'list' | 'hr' | 'paragraph' | 'math';
   level?: number;
   content?: string;
   tableData?: TableData;
@@ -46,6 +46,133 @@ export const FormattedContent: React.FC<FormattedContentProps> = ({
     </div>
   );
 };
+
+/* -------------------------------------------------------------------------- */
+/* LaTeX Math Normalizer & Formatter                                          */
+/* -------------------------------------------------------------------------- */
+
+export function formatLatexMath(raw: string): string {
+  if (!raw) return '';
+
+  let text = raw;
+
+  // 1. Remove enclosing math delimiters if present
+  text = text.replace(/^\\\[\s*/, '').replace(/\s*\\\]$/, '');
+  text = text.replace(/^\$\$\s*/, '').replace(/\s*\$\$$/, '');
+  text = text.replace(/^\\\(\s*/, '').replace(/\s*\\\)$/, '');
+  text = text.replace(/^\$\s*/, '').replace(/\s*\$$/, '');
+
+  // 2. Strip LaTeX environments
+  text = text.replace(/\\begin\{(aligned|cases|bmatrix|matrix|pmatrix|array)\}/g, '');
+  text = text.replace(/\\end\{(aligned|cases|bmatrix|matrix|pmatrix|array)\}/g, '');
+
+  // 3. LaTeX formatting & sizing
+  text = text.replace(/\\(text|mathrm|mathbf|mathit|mathsf|operatorname)\{([^}]+)\}/g, '$2');
+  text = text.replace(/\\operatorname\s+([a-zA-Z]+)/g, '$1');
+  text = text.replace(/\\(quad|qquad)/g, '    ');
+  text = text.replace(/\\[,;:!]/g, ' ');
+  text = text.replace(/\\displaystyle/g, '');
+
+  // 4. Fractions: \frac{a}{b} -> (a) / (b)
+  for (let round = 0; round < 3; round++) {
+    text = text.replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1) / ($2)');
+  }
+
+  // 5. Roots: \sqrt{x} -> √(x)
+  text = text.replace(/\\sqrt\{([^{}]+)\}/g, '√($1)');
+  text = text.replace(/\\sqrt\s+([a-zA-Z0-9])/g, '√$1');
+
+  // 6. Number Sets
+  text = text.replace(/\\mathbb\{R\}|\\mathbb R/g, 'ℝ');
+  text = text.replace(/\\mathbb\{N\}|\\mathbb N/g, 'ℕ');
+  text = text.replace(/\\mathbb\{Z\}|\\mathbb Z/g, 'ℤ');
+  text = text.replace(/\\mathbb\{C\}|\\mathbb C/g, 'ℂ');
+  text = text.replace(/\\mathbb\{Q\}|\\mathbb Q/g, 'ℚ');
+
+  // 7. Greek letters
+  const greekMap: Record<string, string> = {
+    alpha: 'α', beta: 'β', gamma: 'γ', Gamma: 'Γ', delta: 'δ', Delta: 'Δ',
+    epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', Theta: 'Θ',
+    iota: 'ι', kappa: 'κ', lambda: 'λ', Lambda: 'Λ', mu: 'μ', nu: 'ν',
+    xi: 'ξ', pi: 'π', Pi: 'Π', rho: 'ρ', sigma: 'σ', Sigma: 'Σ',
+    tau: 'τ', phi: 'ϕ', varphi: 'ϕ', Phi: 'Φ', chi: 'χ', psi: 'ψ', Psi: 'Ψ',
+    omega: 'ω', Omega: 'Ω'
+  };
+  for (const [name, sym] of Object.entries(greekMap)) {
+    const re = new RegExp(`\\\\${name}(?![a-zA-Z])`, 'g');
+    text = text.replace(re, sym);
+  }
+
+  // 8. Math Operators & Relations
+  text = text.replace(/\\nabla/g, '∇');
+  text = text.replace(/\\le0/g, '≤ 0');
+  text = text.replace(/\\ge0/g, '≥ 0');
+  text = text.replace(/\\(le|leq)(?![a-zA-Z])/g, '≤');
+  text = text.replace(/\\(ge|geq)(?![a-zA-Z])/g, '≥');
+  text = text.replace(/\\(ne|neq)(?![a-zA-Z])/g, '≠');
+  text = text.replace(/\\approx/g, '≈');
+  text = text.replace(/\\times/g, '×');
+  text = text.replace(/\\cdot/g, '·');
+  text = text.replace(/\\pm/g, '±');
+  text = text.replace(/\\mp/g, '∓');
+  text = text.replace(/\\in(?![a-zA-Z])/g, '∈');
+  text = text.replace(/\\notin/g, '∉');
+  text = text.replace(/\\subset(?![a-zA-Z])/g, '⊂');
+  text = text.replace(/\\subseteq/g, '⊆');
+  text = text.replace(/\\cup/g, '∪');
+  text = text.replace(/\\cap/g, '∩');
+  text = text.replace(/\\sum/g, '∑');
+  text = text.replace(/\\prod/g, '∏');
+  text = text.replace(/\\int/g, '∫');
+  text = text.replace(/\\partial/g, '∂');
+  text = text.replace(/\\infty/g, '∞');
+  text = text.replace(/\\(to|rightarrow)/g, '→');
+  text = text.replace(/\\leftarrow/g, '←');
+  text = text.replace(/\\forall/g, '∀');
+  text = text.replace(/\\exists/g, '∃');
+  text = text.replace(/\\succ(?![a-zA-Z])/g, '≻');
+  text = text.replace(/\\prec(?![a-zA-Z])/g, '≺');
+  text = text.replace(/\\succeq/g, '⪰');
+  text = text.replace(/\\preceq/g, '⪯');
+
+  // 9. Transpose & powers
+  text = text.replace(/\^\\top|\^T|\^\{\\top\}|\^\{T\}/g, 'ᵀ');
+  text = text.replace(/\^\\ast|\^\{(\\ast|\*)\}|\^\*/g, '*');
+  text = text.replace(/\^2/g, '²');
+  text = text.replace(/\^3/g, '³');
+  text = text.replace(/\^k/g, 'ᵏ');
+  text = text.replace(/\^n/g, 'ⁿ');
+
+  // 10. Common Subscripts
+  const subscriptMap: Record<string, string> = {
+    '_{k+1}': 'ₖ₊₁', '_{xx}': 'ₓₓ', '_{act}': ' act', '_{pd}': ' pd',
+    '_0': '₀', '_1': '₁', '_2': '₂', '_3': '₃', '_4': '₄',
+    '_5': '₅', '_6': '₆', '_7': '₇', '_8': '₈', '_9': '₉',
+    '_i': 'ᵢ', '_j': 'ⱼ', '_k': 'ₖ', '_n': 'ₙ', '_m': 'ₘ', '_p': 'ₚ', '_x': 'ₓ'
+  };
+  for (const [sub, sym] of Object.entries(subscriptMap)) {
+    text = text.split(sub).join(sym);
+  }
+
+  // 11. Accents: \tilde{x} -> ~x, \hat{x} -> ^x, \bar{x} -> x̄
+  text = text.replace(/\\tilde\{([^}]+)\}/g, '~$1');
+  text = text.replace(/\\tilde\s*([a-zA-Z])/g, '~$1');
+  text = text.replace(/\\hat\{([^}]+)\}/g, '^$1');
+  text = text.replace(/\\hat\s*([a-zA-Z])/g, '^$1');
+  text = text.replace(/\\bar\{([^}]+)\}/g, '$1̄');
+
+  // 12. Cleanup linebreaks & alignment ampersands
+  text = text.replace(/\\\\/g, '\n');
+  text = text.replace(/&/g, ' ');
+  text = text.replace(/\\s\.t\./g, 's.t.');
+
+  // 13. Remove leftover backslashes in front of single non-alphanumeric chars or escaped asterisks
+  text = text.replace(/\\\*/g, '*');
+  text = text.replace(/\\([a-zA-Z0-9]+)/g, '$1');
+  text = text.replace(/\\/g, '');
+
+  return text.trim();
+}
 
 /* -------------------------------------------------------------------------- */
 /* Block Parser                                                               */
@@ -206,6 +333,60 @@ function parseMarkdownBlocks(rawText: string): Block[] {
       blocks.push({
         type: 'code',
         codeData: { language, code: codeLines.join('\n') },
+      });
+      continue;
+    }
+
+    // 2.5 Math Block: \[ ... \] or $$ ... $$ or \begin{aligned/cases/bmatrix}
+    if (
+      trimmed.startsWith('\\[') ||
+      trimmed.startsWith('$$') ||
+      /^\\begin\{(aligned|cases|bmatrix|matrix|pmatrix)\}/.test(trimmed)
+    ) {
+      const isBracket = trimmed.startsWith('\\[');
+      const isDollar = trimmed.startsWith('$$');
+      const closingTag = isBracket
+        ? '\\]'
+        : isDollar
+        ? '$$'
+        : `\\end{${trimmed.match(/^\\begin\{([^}]+)\}/)?.[1] || 'aligned'}}`;
+
+      // Single line math block: e.g. \[ f(x) \le 0 \]
+      if ((isBracket || isDollar) && trimmed.length > 2 && trimmed.endsWith(closingTag)) {
+        const rawFormula = trimmed.slice(2, -2).trim();
+        blocks.push({
+          type: 'math',
+          content: rawFormula,
+        });
+        i++;
+        continue;
+      }
+
+      // Multiline math block
+      const mathLines: string[] = [];
+      if (isBracket || isDollar) {
+        const firstLineInner = trimmed.slice(2).trim();
+        if (firstLineInner) mathLines.push(firstLineInner);
+      } else {
+        mathLines.push(trimmed);
+      }
+      i++;
+
+      while (i < lines.length && !lines[i].includes(closingTag)) {
+        mathLines.push(lines[i]);
+        i++;
+      }
+
+      if (i < lines.length) {
+        const lastLine = lines[i];
+        const beforeClosing = lastLine.slice(0, lastLine.indexOf(closingTag)).trim();
+        if (beforeClosing) mathLines.push(beforeClosing);
+        i++; // consume line with closing tag
+      }
+
+      blocks.push({
+        type: 'math',
+        content: mathLines.join('\n'),
       });
       continue;
     }
@@ -409,6 +590,9 @@ const BlockRenderer: React.FC<{ block: Block }> = ({ block }) => {
     case 'hr':
       return <hr className="my-6 border-[#eaecef] dark:border-[#2b3139]" />;
 
+    case 'math':
+      return <MathBlockRenderer formula={block.content || ''} />;
+
     case 'paragraph':
     default:
       return (
@@ -507,6 +691,52 @@ const TableRenderer: React.FC<{ data: TableData }> = ({ data }) => {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+};
+
+const MathBlockRenderer: React.FC<{ formula: string }> = ({ formula }) => {
+  const [copied, setCopied] = useState(false);
+  const clean = formatLatexMath(formula).trim();
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(clean);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3.5 rounded-xl border border-[#eaecef] dark:border-[#2b3139] overflow-hidden bg-white dark:bg-[#12161c] shadow-xs">
+      <div className="flex items-center justify-between px-3.5 py-1.5 bg-[#f8f9fa] dark:bg-[#181d24] border-b border-[#eaecef] dark:border-[#2b3139]">
+        <div className="flex items-center gap-2">
+          <div className="w-5 h-5 rounded flex items-center justify-center bg-[#FCD535]/15 text-[#b8860b] dark:text-[#FCD535] font-bold text-xs">
+            ∑
+          </div>
+          <span className="text-[10px] font-mono uppercase tracking-wider font-semibold text-[#707a8a] dark:text-[#a0aec0]">
+            Formula / System Model
+          </span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-[11px] text-[#707a8a] hover:text-[#181a20] dark:hover:text-white transition-colors cursor-pointer"
+          title="Copy Formula"
+        >
+          {copied ? (
+            <>
+              <Check className="h-3 w-3 text-[#0ecb81]" />
+              <span className="text-[#0ecb81] text-[10px]">Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="h-3 w-3" />
+              <span className="text-[10px]">Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      <div className="p-4 overflow-x-auto text-xs md:text-sm font-mono text-[#181a20] dark:text-[#FCD535] leading-relaxed whitespace-pre-wrap select-all">
+        {clean}
       </div>
     </div>
   );
@@ -720,9 +950,13 @@ function renderLineTokens(line: string): React.ReactNode {
     const codeMatch = remaining.match(/`([^`]+)`/);
     // 3. Italic: *text* (when not bold)
     const italicMatch = remaining.match(/(?<!\*)\*([^*]+)\*(?!\*)/);
+    // 4. Inline LaTeX math: \(... \)
+    const parenMathMatch = remaining.match(/\\\((.*?)\\\)/);
+    // 5. Inline dollar math: $...$
+    const dollarMathMatch = remaining.match(/(?<!\$)\$(?!\$)([^\$\n]{1,160})(?<!\$)\$/);
 
     // Find the earliest match
-    let earliest: { type: 'bold' | 'code' | 'italic'; index: number; match: RegExpMatchArray } | null = null;
+    let earliest: { type: 'bold' | 'code' | 'italic' | 'math'; index: number; match: RegExpMatchArray } | null = null;
 
     if (boldMatch && boldMatch.index !== undefined) {
       earliest = { type: 'bold', index: boldMatch.index, match: boldMatch };
@@ -732,6 +966,12 @@ function renderLineTokens(line: string): React.ReactNode {
     }
     if (italicMatch && italicMatch.index !== undefined && (!earliest || italicMatch.index < earliest.index)) {
       earliest = { type: 'italic', index: italicMatch.index, match: italicMatch };
+    }
+    if (parenMathMatch && parenMathMatch.index !== undefined && (!earliest || parenMathMatch.index < earliest.index)) {
+      earliest = { type: 'math', index: parenMathMatch.index, match: parenMathMatch };
+    }
+    if (dollarMathMatch && dollarMathMatch.index !== undefined && (!earliest || dollarMathMatch.index < earliest.index)) {
+      earliest = { type: 'math', index: dollarMathMatch.index, match: dollarMathMatch };
     }
 
     if (!earliest) {
@@ -769,6 +1009,15 @@ function renderLineTokens(line: string): React.ReactNode {
           {innerText}
         </em>
       );
+    } else if (earliest.type === 'math') {
+      tokens.push(
+        <code
+          key={key++}
+          className="px-1.5 py-0.5 mx-0.5 rounded bg-[#f0f2f5] dark:bg-[#1e2329] text-[#b8860b] dark:text-[#FCD535] font-mono text-[11px] font-semibold border border-[#eaecef] dark:border-[#38414e] inline-block"
+        >
+          {formatLatexMath(innerText)}
+        </code>
+      );
     }
 
     // Advance remaining
@@ -779,8 +1028,14 @@ function renderLineTokens(line: string): React.ReactNode {
 }
 
 function renderTextWithBadges(text: string): React.ReactNode {
+  // If the cell/text has raw un-delimited LaTeX macros, sanitize them
+  let cleanText = text;
+  if (/\\(nabla|lambda|mu|alpha|beta|sigma|rho|phi|le|ge|operatorname|mathbb|begin|end|quad|sum|frac|partial)/.test(cleanText)) {
+    cleanText = formatLatexMath(cleanText);
+  }
+
   // If the cell/text is an exact short status keyword like "Yes", "No", "Pass", "Critical"
-  const trimmed = text.trim();
+  const trimmed = cleanText.trim();
   const lower = trimmed.toLowerCase();
 
   if (lower === 'yes' || lower === 'pass' || lower === 'passed' || lower === 'safe') {
@@ -807,5 +1062,5 @@ function renderTextWithBadges(text: string): React.ReactNode {
     );
   }
 
-  return text;
+  return cleanText;
 }

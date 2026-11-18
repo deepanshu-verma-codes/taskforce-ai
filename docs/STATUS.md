@@ -276,6 +276,158 @@ Here is the exact record of work performed, the engineering challenges encounter
     - Updated [Header.tsx](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/Header.tsx) with user profile badge and logout button.
   - **Verification:** All 11 backend tests (`test_swarm.py` + `test_auth_isolation.py`) and Vite compilation pass with 0 errors.
 
+### 29. Autonomous Game Arena: Route `/game` (Tic-Tac-Toe vs Swarm Agents with 'Try to Win' Mechanics)
+- **Requirement:** User requested a dedicated `/game` route allowing players to challenge an AI agent to Tic-Tac-Toe and strategically "try to win".
+- **Backend Architecture & AI Opponent Engine:**
+  - Implemented `app/services/game_service.py` with full game tree analysis and customizable difficulty:
+    - **Tactical Challenger (Default / "Try to Win!"):** Deploys smart minimax moves while intentionally injecting controlled tactical openings (20% blunder on defense, heuristic preference on non-critical tiles), enabling observant players to execute forks, corner traps, and win!
+    - **Grandmaster:** Pure, unyielding minimax engine for optimal play.
+    - **Casual / Apprentice:** 40% optimal, 60% exploratory for fast victories and high win streaks.
+  - Implemented distinct persona commentary matrices for all 6 swarm agents (`Marcus Vance`, `Elena Rostova`, `David Park`, `Maya Patel`, `James Thorne`, `Sarah Chen`) capturing real-time move banter, tactical insights, and victory/defeat acknowledgments.
+  - Added REST endpoints `GET /api/game/agents` and `POST /api/game/move` in `app/main.py` with Pydantic v2 validation contracts in `app/schemas.py`.
+  - Configured dedicated 120 req/60s rate limit tier in `middleware.py` for fluid, zero-lag gameplay.
+- **Frontend Architecture & Binance Design System:**
+  - Integrated SPA client-side routing in `App.tsx` handling `/game` with seamless `window.history` navigation and `popstate` support.
+  - Updated `Header.tsx` with responsive navigation links ("Problem Floor" and "Tic-Tac-Toe Arena" with gold `.ai` styling and mobile support).
+  - Authored interactive `TicTacToeGame.tsx` component:
+    - 3x3 interactive tile matrix with hover ghost previews, glowing winning line highlights, and sound effects via native Web Audio API synthesis (0 external asset dependencies).
+    - Opponent selection carousel featuring all 6 agents with tactical radar ratings (Defense, Foresight, Offense).
+    - Live persona dialogue balloon and tactical insight badges.
+    - LocalStorage-persisted scoreboard tracking Player Wins, Agent Wins, Ties, and active Win Streaks with celebratory confetti bursts upon victory.
+- **Automated Verification:**
+  - Created `backend/tests/test_game.py` covering agent listing, minimax moves, player victory detection, agent victory, ties, and blunder probability assertions.
+  - All 21 backend tests pass in 1.30s (`pytest tests/`), `uv run ruff check .` passes with 0 errors, and `npm run build` succeeds in 1.52s.
+
+### 30. Authentication UI Refinement: Consent Checkbox & User-Friendly Session Assurance
+- **Sign Up Page:**
+  - Removed technical invariant label: `Isolated Workspace • HttpOnly Session • Zero Cross-Tenant Visibility`.
+  - Replaced with interactive legal consent checkbox: *"I agree to the Terms of Service and acknowledge the Privacy Policy."*
+  - Enforced validation requiring agreement before registration submission, disabling the button until agreed.
+- **Sign In Page:**
+  - Removed technical token implementation details: `HttpOnly Cookies • 15m Access Token • 7d Refresh`.
+  - Replaced with user-friendly security reassurance: *"Your workspace session is encrypted and securely protected"*.
+- **Verification:** `npm run build` passes cleanly in 2.01s with 0 errors.
+
+### 31. Autonomous Game Arena (/game) & Daily Usage Quota System (VIP Exemption for deepanshu_verma)
+- **Interactive Tic-Tac-Toe Arena (`/game`):**
+  - Built full interactive 3x3 game arena against 6 AI agents: Marcus Vance, Elena Rostova, David Park, Maya Patel, James Thorne, and Sarah Chen.
+  - Three distinct tactical modes ("Easy", "Tactical / Try to Win", "Grandmaster") featuring simulated heuristic blunders on tactical mode so operators can strategize, find forks, and achieve victory.
+  - Live persona dialogue and tactical commentary after each move, synthesized Web Audio sound FX, and victory confetti.
+- **Daily Resource & Token Quota Engine:**
+  - Prevents compute exhaustion, rate limit abuse, and excessive LLM token consumption.
+  - Enforces strict limits: **5 games per day** and **5 problem resolutions per day** per user or client IP.
+  - Match deduplication: Tic-Tac-Toe games involve multiple turns/moves, tracked via `match_id` so an entire match consumes exactly 1 game from the quota.
+  - In-memory auto-cleanup: older calendar dates are automatically purged at midnight UTC.
+- **Owner VIP Exemption (`deepanshu_verma`):**
+  - Account `deepanshu_verma` (and `deepanshu-verma`) is permanently whitelisted via `QUOTA_EXEMPT_USERNAMES` in backend config.
+  - Receives unlimited daily games and unlimited problem solves (`remaining_today: 999999`, `is_exempt: true`).
+  - Frontend displays exclusive golden `VIP Unlimited` badge with custom owner hover tooltips across the Problem Floor and Game Arena.
+- **Verification:**
+  - `uv run pytest tests/` passes 25/25 automated tests (including `test_quota.py` verifying limits and exemption).
+  - `uv run ruff check .` passes with 0 lint errors.
+  - `npm run build` (`tsc -b && vite build`) succeeds in <1.9s with 0 errors.
+
+### 32. Interactive Password Visibility Toggle (Eye / EyeOff) in Sign In & Sign Up
+- **Frontend Password Input Enhancement:**
+  - Added interactive eye icons (`Eye` and `EyeOff` from `lucide-react`) inside the password fields on both [`SignInPage.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/SignInPage.tsx#L170-L195) and [`SignUpPage.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/SignUpPage.tsx#L305-L330).
+  - Allows operators to toggle masking between `type="password"` and `type="text"` to inspect and verify their entered credentials before submitting.
+  - Positioned cleanly with right-hand inset padding (`pr-10`) preserving responsive layout and theme styling.
+- **Account Health & Integrity Check:**
+  - Verified account `deepanshu_verma` exists intact in SQLite database `fde_swarm.db` with all 29 owned problems and permanent VIP quota exemption.
+- **Verification:**
+  - `npm run build` passes with 0 type errors.
+  - `uv run pytest tests/` passes 25/25 automated tests.
+
+### 33. Qdrant Cloud Vector Database Live Synchronization (taskforce_rag)
+- **Root Cause of Missing Cloud Vectors:**
+  - Previously, `.env` defined `QDRANT_CLUSTER_URL`, but `Settings` in [`config.py`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py#L71-L82) was looking strictly for `QDRANT_URL`.
+  - Because `QDRANT_URL` was unset, [`rag_service.py`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/services/rag_service.py) automatically fell back to local disk storage (`./qdrant_storage`), keeping vectors local on your machine instead of uploading them to your remote Qdrant Cloud cluster.
+- **Resolution & Cloud Connection:**
+  - Added `QDRANT_CLUSTER_URL` and `effective_qdrant_url` property in [`config.py`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py#L71-L82) and mapped both `QDRANT_URL` and `QDRANT_CLUSTER_URL` in `.env` and `backend/.env`.
+  - Connected directly to remote Qdrant Cloud cluster: `https://a9472097-4abd-498e-871c-996f9bd994c9.us-east-1-1.aws.cloud.qdrant.io`.
+  - Added automatic payload keyword indexing on `problem_id` in [`rag_service.py`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/services/rag_service.py#L55-L75), satisfying Qdrant Cloud's strict filtering requirements.
+  - Upserted 6 vector chunks from `sample_incident_report.pdf` into collection `taskforce_rag` on Qdrant Cloud.
+- **Verification:**
+  - `client.get_collection('taskforce_rag')` confirms points count: **6**, status: **green**.
+  - All 25/25 automated tests pass.
+
+### 34. Left Panel RAG Badge Simplification (Compact Icon Only)
+- **Problem List UI Streamlining:**
+  - In [`ProblemList.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemList.tsx#L139-L147), removed the long text badge `Qdrant RAG ({problem.document_name})` from problem rows in the left navigation panel.
+  - Replaced with a clean, compact gold database icon (`<Database className="h-3 w-3" />`) with a helpful hover tooltip (`RAG Document: <filename>`), preventing text wrap and maintaining high-density alignment in the problem floor.
+- **Verification:**
+  - `npm run build` passed in 1.58s with 0 errors.
+  - All 25/25 backend tests passing.
+
+### 35. Dynamic VIP Unlimited Pass & Owner Admin Console (deepanshu_verma Exclusives)
+- **VIP Unlimited Access Code Engine:**
+  - Any user can enter the active VIP access code (`POST /api/vip/redeem`) to immediately unlock VIP Unlimited status, removing daily limits on problem resolutions (999,999 solves) and game turns.
+  - Default initial code configured as `VIP2026` in [`config.py`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/backend/app/config.py) and managed dynamically in SQLite `system_settings`.
+- **Administrative Master Controls (`deepanshu_verma`):**
+  - **Dynamic Code Changing:** Platform owner can change the VIP access code at any time (`POST /api/vip/code`). Unauthorized users receive HTTP 403 Forbidden.
+  - **Access Revocation:** Owner can inspect the directory of users granted VIP and revoke access on demand (`POST /api/vip/revoke`). Revoked users immediately revert to standard daily quotas (5/day).
+  - Permanent immunity: `deepanshu_verma` privileges cannot be revoked.
+- **Frontend VIP Console Modal (`VipModal.tsx`):**
+  - **Owner View:** Displays current active code with instant copy button, inline code update form, and user table with one-click revocation buttons.
+  - **User View:** Provides a clean redemption form for operators to activate their VIP Unlimited pass.
+  - Trigger buttons integrated into [`Header.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/Header.tsx#L160-L185), [`ProblemDetail.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/ProblemDetail.tsx#L149-L175), and [`TicTacToeGame.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/TicTacToeGame.tsx#L525-L550).
+- **Verification:**
+  - `uv run pytest tests/test_vip.py` passes 100% (26/26 backend test suite passing).
+  - `uv run ruff check .` passes with 0 errors.
+  - `npm run build` succeeds in 1.53s with 0 errors.
+
+### 36. Binance-Themed Revocation Confirmation Modal (Elimination of Native Alert/Confirm)
+- **Elimination of Native Browser Dialogs:**
+  - Replaced native browser `confirm()` with a custom Binance-themed confirmation modal in [`VipModal.tsx`](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/frontend/src/components/VipModal.tsx#L450-L557).
+  - Native alerts broke the dark-mode aesthetic and disrupted user immersion; the dedicated modal provides defensive confirmation and full theme alignment.
+- **Confirmation Modal Features:**
+  - **Defensive Warning Banner:** Explains the exact consequence: *"This user will immediately lose unlimited problem solving and game moves, and will revert to standard daily quotas (5 problems and 5 games per day)."*
+  - **Target User Preview Card:** Displays the target user's avatar initial, display name, and `@username`.
+  - **Actions:** Clean "Cancel" button and high-contrast red "Revoke VIP Access" action button with live spinner loading state (`isRevoking`).
+  - **Defensive Safeguards:** Automatically prevents self-revocation by hiding the revoke button for `deepanshu_verma`.
+- **Verification:**
+  - `npm run build` passed in 1.58s with 0 errors.
+  - `uv run pytest tests/` passed 26/26 tests.
+  - `uv run ruff check .` passed with 0 errors.
+
+### 37. Mathematical Clarity & LaTeX Gibberish Elimination (Frontend Unicode Normalizer + SciPy Solver)
+- **Problem Statement:**
+  - The solution for *'Constrained Nonlinear Optimization via Karush-Kuhn-Tucker (KKT) Conditions'* previously generated dense walls of unrendered raw academic LaTeX equations (`\[ \begin{aligned} ... \]`, `\operatorname{rank}`, `\rho_k = \frac{1}{y_k^\top s_k}`, `B_{k+1}=...`) with zero plain-English context, making it completely incomprehensible to human operators.
+  - The frontend markdown renderer displayed raw escaped backslashes, LaTeX layout macros, and un-delimited syntax.
+- **Frontend Math Normalizer & Renderer (`FormattedContent.tsx`):**
+  - Built comprehensive LaTeX math normalizer (`formatLatexMath`) converting LaTeX macros into clean Unicode typography:
+    - Operators: `\nabla` $\to$ `∇`, `\le` $\to$ `≤`, `\ge` $\to$ `≥`, `\in` $\to$ `∈`, `\sum` $\to$ `∑`, `\partial` $\to$ `∂`, `\infty` $\to$ `∞`.
+    - Greek letters: `\lambda` $\to$ `λ`, `\mu` $\to$ `μ`, `\alpha` $\to$ `α`, `\beta` $\to$ `β`, `\phi` $\to$ `ϕ`, `\rho` $\to$ `ρ`, `\sigma` $\to$ `σ`, `\Delta` $\to$ `Δ`.
+    - Subscripts & Transposes: `^\top` $\to$ `ᵀ`, `_i` $\to$ `ᵢ`, `_j` $\to$ `ⱼ`, `_k` $\to$ `ₖ`, `_{k+1}` $\to$ `ₖ₊₁`.
+  - Added dedicated `<MathBlockRenderer />` with high-density Binance styling, `∑` formula badge, and copy formula action.
+  - Upgraded inline markdown to detect `\(...\)` and `$...$` and format as clean gold-accented monospace badges without backslashes.
+  - Auto-sanitizes un-delimited LaTeX macros in tables and paragraphs.
+- **Optimization & Mathematics Prompt Overhaul (`semantic_solver.py`):**
+  - Removed code restrictions for computational math and optimization (`allow_code: True`).
+  - Enforced extreme human clarity: plain-English visual analogies (hiking trail = equality constraint, boundary fence = inequality constraint, valley floor = objective minimum).
+  - Demystified jargon: KKT (4-point optimality checklist), LICQ (constraint sanity check preventing redundancy), Interior-Point (invisible bumper rails), and BFGS (smart curvature estimation on the fly).
+  - Included a complete production-grade Python script using `scipy.optimize.minimize(method='trust-constr')` with real constraints and bounds.
+- **Database & Problem Synchronization:**
+  - Updated Problem #25 and all agent runs (Elena Rostova, David Park, Maya Patel, Marcus Vance) in SQLite `backend/fde_swarm.db` with the intuitive guide and SciPy script.
+- **Verification:**
+  - `npm run build` succeeds in 1.62s with 0 errors.
+  - `uv run ruff check .` passed with 0 errors.
+  - `uv run pytest tests/` passed 26/26 tests.
+
+### 38. Comprehensive Security Vulnerability Audit & Actionable Backlog ([SECURITY.md](file:///Users/deepanshuverma/Documents/Deepanshu's%20Project/Task/taskforce-ai/docs/SECURITY.md#L131-L202))
+- **Security Assessment Conducted:**
+  - Audited application code, authentication, rate limiting, RAG vector ingestion, and agent orchestration against OWASP Top 10, OWASP LLM 2025, and CWE/SANS Top 25 standards.
+- **Vulnerabilities Documented in `docs/SECURITY.md` Backlog (TODO):**
+  - **SEC-01 (High):** Trusted proxy verification for `X-Forwarded-For` in rate limiter and quota service.
+  - **SEC-02 (High):** Startup assertion enforcing randomized, non-default `SECRET_KEY` in production.
+  - **SEC-03 (Medium):** Protection against first-registration privilege escalation on reserved admin usernames.
+  - **SEC-04 (Medium):** Mandatory session authentication on `POST /api/upload-document` to prevent unauthenticated CPU/memory DoS.
+  - **SEC-05 (Medium):** XML-delimited prompt injection containment for retrieved Qdrant document excerpts.
+  - **SEC-06 (Low):** Server-side JWT revocation blocklist on logout.
+  - **SEC-07 (Low):** Atomic Qdrant vector point purging on problem deletion.
+  - **SEC-08 (Low):** Auto-detection of HTTPS protocol for secure cookie flags.
+  - **SEC-09 (Low):** Disconnect detection in SSE streaming to terminate zombie background query loops.
+
 ---
 
 ## 5. Repository File Map & Key Artifacts
