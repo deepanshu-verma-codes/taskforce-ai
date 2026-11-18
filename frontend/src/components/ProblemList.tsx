@@ -137,9 +137,11 @@ export const ProblemList: React.FC<ProblemListProps> = ({
                       {problem.agent_count} Agents
                     </span>
                     {Boolean(problem.has_rag && problem.document_name) && (
-                      <span className="flex items-center gap-1 text-[#b8860b] dark:text-[#FCD535]">
+                      <span
+                        className="flex items-center text-[#b8860b] dark:text-[#FCD535]"
+                        title={problem.document_name ? `RAG Document: ${problem.document_name}` : 'RAG Vector Context'}
+                      >
                         <Database className="h-3 w-3" />
-                        Qdrant RAG ({problem.document_name})
                       </span>
                     )}
                     {problem.total_cost > 0 && (

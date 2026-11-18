@@ -14,6 +14,7 @@ from qdrant_client.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    PayloadSchemaType,
     PointStruct,
     VectorParams,
 )
@@ -30,13 +31,15 @@ def get_qdrant_client() -> QdrantClient:
     if _qdrant_client is not None:
         return _qdrant_client
 
-    if settings.QDRANT_URL:
+    qdrant_url = settings.effective_qdrant_url
+    if qdrant_url:
         try:
             _qdrant_client = QdrantClient(
-                url=settings.QDRANT_URL,
+                url=qdrant_url,
                 api_key=settings.QDRANT_API_KEY,
-                timeout=10,
+                timeout=15,
             )
+            print(f"[Qdrant] Connected to remote Qdrant Cloud cluster at {qdrant_url}")
         except Exception as e:
             print(
                 f"[Qdrant] Could not connect to remote Qdrant URL ({e}). Falling back to local/in-memory."
@@ -64,6 +67,14 @@ def get_qdrant_client() -> QdrantClient:
             print(
                 f"[Qdrant] Initialized collection '{settings.QDRANT_COLLECTION}' (dim={VECTOR_DIM}, Cosine)."
             )
+        try:
+            _qdrant_client.create_payload_index(
+                collection_name=settings.QDRANT_COLLECTION,
+                field_name="problem_id",
+                field_schema=PayloadSchemaType.KEYWORD,
+            )
+        except Exception:
+            pass  # Index already exists or supported
     except Exception as e:
         print(f"[Qdrant] Collection check error: {e}")
 
