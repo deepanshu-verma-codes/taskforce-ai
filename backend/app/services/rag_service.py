@@ -34,11 +34,14 @@ def get_qdrant_client() -> QdrantClient:
     qdrant_url = settings.effective_qdrant_url
     if qdrant_url:
         try:
-            _qdrant_client = QdrantClient(
+            remote_client = QdrantClient(
                 url=qdrant_url,
                 api_key=settings.QDRANT_API_KEY,
-                timeout=15,
+                timeout=5,
             )
+            # Verify connectivity to remote cluster before adopting it
+            remote_client.get_collections()
+            _qdrant_client = remote_client
             print(f"[Qdrant] Connected to remote Qdrant Cloud cluster at {qdrant_url}")
         except Exception as e:
             print(
